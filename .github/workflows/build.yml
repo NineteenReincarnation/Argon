@@ -60,3 +60,93 @@ jobs:
                       build/libs/*.jar
                       !build/libs/*-sources.jar
                   if-no-files-found: error
+
+    iris-26_2-structure:
+        name: Iris ${{ matrix.runtime }} structure
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - artifact: "1.11.0+26.2-fabric"
+                      runtime: "1.11.0+mc26.2"
+                      sodium: "0.9.0"
+                    - artifact: "1.11.1+26.2-fabric"
+                      runtime: "1.11.1+mc26.2"
+                      sodium: "0.9.0"
+                    - artifact: "1.11.2+26.2-fabric"
+                      runtime: "1.11.2+mc26.2"
+                      sodium: "0.9.1"
+                    - artifact: "1.11.4+26.2-fabric"
+                      runtime: "1.11.4+mc26.2"
+                      sodium: "0.9.2"
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up Java 25
+              uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: "25"
+
+            - name: Set up Gradle
+              uses: gradle/actions/setup-gradle@v4
+
+            - name: Resolve Iris release
+              run: ./gradlew resolveIrisCompatibilityProbe -Piris_probe_version='${{ matrix.artifact }}' --stacktrace
+
+            - name: Verify Iris runtime metadata
+              shell: bash
+              env:
+                  EXPECTED_RUNTIME: "${{ matrix.runtime }}"
+              run: |
+                  set -euo pipefail
+                  JAR="build/compatibility/iris/iris-probe.jar"
+                  test -f "$JAR"
+                  unzip -p "$JAR" fabric.mod.json > build/compatibility/iris/fabric.mod.json
+                  python - <<'PY'
+                  import json
+                  import os
+
+                  with open("build/compatibility/iris/fabric.mod.json", encoding="utf-8") as fh:
+                      metadata = json.load(fh)
+
+                  expected = os.environ["EXPECTED_RUNTIME"]
+                  actual = metadata["version"]
+                  if actual != expected:
+                      raise SystemExit(f"Expected Iris runtime version {expected!r}, got {actual!r}")
+                  print(f"Iris runtime version: {actual}")
+                  PY
+
+            - name: Verify Argon Mixin target surface
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  JAR="build/compatibility/iris/iris-probe.jar"
+                  OUT="build/compatibility/iris/javap"
+                  mkdir -p "$OUT"
+
+                  javap -private -classpath "$JAR" net.irisshaders.iris.pipeline.IrisRenderingPipeline > "$OUT/pipeline.txt"
+                  javap -private -classpath "$JAR" net.irisshaders.iris.uniforms.custom.CustomUniforms > "$OUT/custom-uniforms.txt"
+                  javap -private -classpath "$JAR" net.irisshaders.iris.uniforms.custom.cached.CachedUniform > "$OUT/cached-uniform.txt"
+
+                  grep -Fq "void beginLevelRendering();" "$OUT/pipeline.txt"
+
+                  grep -Fq "locationMap;" "$OUT/custom-uniforms.txt"
+                  grep -Fq "void update();" "$OUT/custom-uniforms.txt"
+                  grep -Fq "void push(java.lang.Object);" "$OUT/custom-uniforms.txt"
+                  grep -Fq "void optimise();" "$OUT/custom-uniforms.txt"
+                  grep -Fq "void mapholderToPass(" "$OUT/custom-uniforms.txt"
+
+                  grep -Fq "boolean changed;" "$OUT/cached-uniform.txt"
+                  grep -Fq "void update();" "$OUT/cached-uniform.txt"
+                  grep -Fq "void pushIfChanged(int);" "$OUT/cached-uniform.txt"
+
+                  for TYPE in FloatCachedUniform IntCachedUniform BooleanCachedUniform VectorCachedUniform; do
+                      javap -private -classpath "$JAR" "net.irisshaders.iris.uniforms.custom.cached.$TYPE" > "$OUT/$TYPE.txt"
+                      grep -Fq "boolean doUpdate();" "$OUT/$TYPE.txt"
+                  done
+
+                  echo "Iris ${{ matrix.runtime }} matches the current Argon Phase 0 Mixin target surface."

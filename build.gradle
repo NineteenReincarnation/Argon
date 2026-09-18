@@ -8,6 +8,17 @@ base {
 }
 
 repositories {
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Modrinth"
+                url = "https://api.modrinth.com/maven"
+            }
+        }
+        filter {
+            includeGroup "maven.modrinth"
+        }
+    }
 }
 
 loom {
@@ -21,9 +32,27 @@ loom {
     }
 }
 
+configurations {
+    irisCompatibilityProbe
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    if (providers.gradleProperty("iris_probe_version").isPresent()) {
+        irisCompatibilityProbe "maven.modrinth:iris:${providers.gradleProperty("iris_probe_version").get()}"
+    }
+}
+
+tasks.register("resolveIrisCompatibilityProbe", Copy) {
+    onlyIf {
+        providers.gradleProperty("iris_probe_version").isPresent()
+    }
+
+    from configurations.irisCompatibilityProbe
+    into layout.buildDirectory.dir("compatibility/iris")
+    rename { "iris-probe.jar" }
 }
 
 version = project.mod_version
