@@ -255,3 +255,16 @@ The Phase 0 simulator now uses the same pass + location-map identity invalidatio
 When Phase A is active, Argon compares the number of uploads the experimental path actually performs with the number required by the independent revision simulation for the same interval. A mismatch is logged as a warning.
 
 If Phase A disables itself during a measurement window, Argon discards that mixed window before returning to Iris' original path so the CSV does not blend experimental and baseline behavior.
+
+
+### Combined Phase A fast path
+
+The current implementation combines both safety and fast-path state:
+
+- pass identity selects the program state;
+- location-map identity invalidates that state if Iris remaps the same pass;
+- a global change epoch skips the entire map when no custom uniform changed since the program's last synchronized push;
+- per-uniform revisions handle frames where at least one custom uniform changed;
+- a first use or remap always enters the revision scan and uploads every required uniform.
+
+The epoch is an optimization only. Per-uniform revisions remain the correctness mechanism.
