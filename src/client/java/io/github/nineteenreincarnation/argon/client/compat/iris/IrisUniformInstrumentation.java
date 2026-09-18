@@ -1,12 +1,13 @@
 package io.github.nineteenreincarnation.argon.client.compat.iris;
 
 import io.github.nineteenreincarnation.argon.Argon;
+import io.github.nineteenreincarnation.argon.version.mc26_2.CompatibilityBaseline26_2;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
 
 public final class IrisUniformInstrumentation {
-    private static final boolean ENABLED =
+    private static final boolean REQUESTED =
         Boolean.parseBoolean(System.getProperty("argon.instrumentation.irisUniforms", "true"));
 
     private static final long REPORT_INTERVAL_NANOS =
@@ -39,12 +40,18 @@ public final class IrisUniformInstrumentation {
     private IrisUniformInstrumentation() {
     }
 
+    public static boolean isRequested() {
+        return REQUESTED;
+    }
+
     public static boolean isEnabled() {
-        return ENABLED;
+        return REQUESTED
+            && CompatibilityBaseline26_2.isMinecraftTarget()
+            && CompatibilityBaseline26_2.isSupportedIris();
     }
 
     public static void onPipelineReset() {
-        if (!ENABLED) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -54,7 +61,7 @@ public final class IrisUniformInstrumentation {
     }
 
     public static void onFrameStart() {
-        if (!ENABLED) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -78,13 +85,13 @@ public final class IrisUniformInstrumentation {
     }
 
     public static void onEvaluation() {
-        if (ENABLED) {
+        if (isEnabled()) {
             evaluations++;
         }
     }
 
     public static void onEvaluationResult(Object uniform, boolean changed) {
-        if (!ENABLED) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -97,7 +104,7 @@ public final class IrisUniformInstrumentation {
     }
 
     public static void onPassPush(Object pass, Object mappedUniforms) {
-        if (!ENABLED) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -126,7 +133,7 @@ public final class IrisUniformInstrumentation {
     }
 
     public static void onUploadCheck(boolean uploaded) {
-        if (!ENABLED) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -137,13 +144,13 @@ public final class IrisUniformInstrumentation {
     }
 
     public static void onUpdateDuration(long nanos) {
-        if (ENABLED) {
+        if (isEnabled()) {
             updateNanos += nanos;
         }
     }
 
     public static void onPushDuration(long nanos) {
-        if (ENABLED) {
+        if (isEnabled()) {
             pushNanos += nanos;
         }
     }

@@ -4,6 +4,7 @@ on:
     push:
         branches:
             - main
+            - "mc/**"
             - "dev/**"
             - "fix/**"
     pull_request:
@@ -33,6 +34,23 @@ jobs:
 
             - name: Build
               run: ./gradlew build --stacktrace
+
+            - name: Verify packaged JAR
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  JAR="$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' | head -n 1)"
+                  test -n "$JAR"
+                  echo "Verifying $JAR"
+
+                  jar tf "$JAR" > build/argon-jar-contents.txt
+
+                  grep -Fxq "fabric.mod.json" build/argon-jar-contents.txt
+                  grep -Fxq "argon.client.mixins.json" build/argon-jar-contents.txt
+                  grep -Fxq "io/github/nineteenreincarnation/argon/Argon.class" build/argon-jar-contents.txt
+                  grep -Fxq "io/github/nineteenreincarnation/argon/client/ArgonClient.class" build/argon-jar-contents.txt
+                  grep -Fxq "io/github/nineteenreincarnation/argon/version/mc26_2/Argon26_2MixinPlugin.class" build/argon-jar-contents.txt
+                  grep -Fxq "io/github/nineteenreincarnation/argon/mixin/mc26_2/iris/CustomUniformsMixin.class" build/argon-jar-contents.txt
 
             - name: Upload development JAR
               uses: actions/upload-artifact@v4
