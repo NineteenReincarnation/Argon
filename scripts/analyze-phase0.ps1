@@ -73,30 +73,30 @@ $Versions = $Rows | ForEach-Object {
 
 $PipelineGenerations = $Rows.pipeline_generation | Sort-Object -Unique
 
-Write-Host ""
-Write-Host "Argon Iris Uniform Phase 0 Summary"
-Write-Host "=================================="
-Write-Host "CSV: $CsvPath"
-Write-Host "Windows: $($Rows.Count)"
-Write-Host ("Frames: {0:N0}" -f $TotalFrames)
-Write-Host "Pipeline generations: $($PipelineGenerations -join ', ')"
-Write-Host ""
-Write-Host "Versions:"
-$Versions | ForEach-Object { Write-Host "  $_" }
-Write-Host ""
-Write-Host ("Evaluations/frame:              {0:N3}" -f (PerFrame $WeightedEvaluations))
-Write-Host ("Changed:                        {0:N3}%" -f ($WeightedChanged / $TotalFrames))
-Write-Host ("Stable:                         {0:N3}%" -f ($WeightedStable / $TotalFrames))
-Write-Host ("Pass pushes/frame:              {0:N3}" -f (PerFrame $WeightedPassPushes))
-Write-Host ""
-Write-Host ("Actual upload checks/frame:     {0:N3}" -f (PerFrame $ActualChecks))
-Write-Host ("Actual uploads/frame:           {0:N3}" -f (PerFrame $ActualUploads))
-Write-Host ("Simulated checks/frame:         {0:N3}" -f (PerFrame $SimulatedChecks))
-Write-Host ("Simulated required/frame:       {0:N3}" -f (PerFrame $SimulatedRequired))
-Write-Host ("Simulated avoidable/frame:      {0:N3}" -f (PerFrame $SimulatedAvoidable))
-Write-Host ("Simulated skip ratio:           {0:N3}%" -f (Percent $SimulatedAvoidable $SimulatedChecks))
-Write-Host ""
-Write-Host ("Instrumented update us/frame:   {0:N3}" -f (PerFrame $WeightedUpdateUs))
-Write-Host ("Instrumented push us/frame:     {0:N3}" -f (PerFrame $WeightedPushUs))
-Write-Host ""
-Write-Host "Note: instrumented timings include measurement overhead and are not final speedup evidence."
+Write-Output ""
+Write-Output "Argon Iris Uniform Phase 0 Summary"
+Write-Output "=================================="
+Write-Output "CSV: $CsvPath"
+Write-Output "Windows: $($Rows.Count)"
+Write-Output ("Frames: {0:N0}" -f $TotalFrames)
+Write-Output "Pipeline generations: $($PipelineGenerations -join ', ')"
+Write-Output ""
+Write-Output "Versions:"
+$Versions | ForEach-Object { Write-Output "  $_" }
+Write-Output ""
+Write-Output ("Evaluations/frame:              {0:N3}" -f (PerFrame $WeightedEvaluations))
+Write-Output ("Changed:                        {0:N3}%" -f ($WeightedChanged / $TotalFrames))
+Write-Output ("Stable:                         {0:N3}%" -f ($WeightedStable / $TotalFrames))
+Write-Output ("Pass pushes/frame:              {0:N3}" -f (PerFrame $WeightedPassPushes))
+Write-Output ""
+Write-Output ("Actual upload checks/frame:     {0:N3}" -f (PerFrame $ActualChecks))
+Write-Output ("Actual uploads/frame:           {0:N3}" -f (PerFrame $ActualUploads))
+Write-Output ("Simulated checks/frame:         {0:N3}" -f (PerFrame $SimulatedChecks))
+Write-Output ("Simulated required/frame:       {0:N3}" -f (PerFrame $SimulatedRequired))
+Write-Output ("Simulated avoidable/frame:      {0:N3}" -f (PerFrame $SimulatedAvoidable))
+Write-Output ("Simulated skip ratio:           {0:N3}%" -f (Percent $SimulatedAvoidable $SimulatedChecks))
+Write-Output ""
+Write-Output ("Instrumented update us/frame:   {0:N3}" -f (PerFrame $WeightedUpdateUs))
+Write-Output ("Instrumented push us/frame:     {0:N3}" -f (PerFrame $WeightedPushUs))
+Write-Output ""
+Write-Output "Note: instrumented timings include measurement overhead and are not final speedup evidence."
