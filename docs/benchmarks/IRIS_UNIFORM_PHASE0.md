@@ -28,7 +28,8 @@ The pinned Iris 1.11.4 source confirms the assumptions behind Phase 0:
 - `CustomUniforms.locationMap` maps pass/program objects to the cached uniforms and GL locations used by that pass.
 - `mapholderToPass(...)` replaces the temporary builder key with the actual program/pass object.
 - Iris renderers retain their `Program` / `ComputeProgram` objects across frames.
-- pipeline/program reconstruction creates new program objects; a new `CustomUniforms` instance clears Argon's simulated revision state.
+- program reconstruction creates new program objects rather than mutating one object's GL identity in place in the audited paths.
+- `CustomUniforms.optimise()` has one pipeline-initialization call site in the pinned source and is used as Argon's revision-state reset point.
 - the Iris 1.11.4 release runtime version is `1.11.4+mc26.2`.
 
 These observations are source-level validation only. Runtime behavior still needs game testing.
@@ -41,7 +42,7 @@ It also simulates the proposed Phase A revision model in memory, without affecti
 
 ## Measurement window
 
-After Iris creates/recreates the custom-uniform pipeline, Argon enters a warm-up period.
+When Iris reaches `CustomUniforms.optimise()` for a newly built pipeline, Argon clears the simulation state and enters a warm-up period.
 
 Default:
 

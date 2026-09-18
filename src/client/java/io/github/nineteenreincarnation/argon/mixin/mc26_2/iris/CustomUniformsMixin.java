@@ -23,8 +23,8 @@ abstract class CustomUniformsMixin {
     @Unique
     private long argon$pushStartedNanos;
 
-    @Inject(method = "<init>", at = @At("RETURN"), remap = false)
-    private void argon$pipelineCreated(CallbackInfo ci) {
+    @Inject(method = "optimise", at = @At("HEAD"), remap = false)
+    private void argon$pipelineReady(CallbackInfo ci) {
         IrisUniformInstrumentation.onPipelineReset();
     }
 
