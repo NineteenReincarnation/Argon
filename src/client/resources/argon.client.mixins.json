@@ -2,7 +2,12 @@
     "required": false,
     "package": "io.github.nineteenreincarnation.argon.mixin",
     "compatibilityLevel": "JAVA_25",
-    "client": [],
+    "client": [
+        "iris.IrisRenderingPipelineMixin",
+        "iris.CustomUniformsMixin",
+        "iris.CachedUniformMixin",
+        "iris.CachedUniformValueMixin"
+    ],
     "injectors": {
         "defaultRequire": 1
     }

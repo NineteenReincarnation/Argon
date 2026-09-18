@@ -1,11 +1,15 @@
 package io.github.nineteenreincarnation.argon.client;
 
 import io.github.nineteenreincarnation.argon.Argon;
+import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformInstrumentation;
 import net.fabricmc.api.ClientModInitializer;
 
 public final class ArgonClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
-        Argon.LOGGER.info("Argon client initialized.");
+        Argon.LOGGER.info(
+            "Argon client initialized. Iris uniform Phase 0 instrumentation: {}.",
+            IrisUniformInstrumentation.isEnabled() ? "enabled" : "disabled"
+        );
     }
 }

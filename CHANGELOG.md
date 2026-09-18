@@ -10,4 +10,5 @@ Target: Minecraft 26.2 / Fabric
 
 - Bootstrap the Minecraft 26.2 Fabric project.
 - Establish CI builds and version/project-management rules.
-- Begin Phase 0 measurement of the Iris custom-uniform pipeline with Spooklementary 2.0.4 as the primary shader workload.
+- Add Phase 0 instrumentation for the Iris custom-uniform pipeline.
+- Use Spooklementary 2.0.4 as the primary shader workload for the first optimization investigation.
