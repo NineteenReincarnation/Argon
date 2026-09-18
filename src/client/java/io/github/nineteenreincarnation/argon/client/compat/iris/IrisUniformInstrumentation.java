@@ -18,27 +18,26 @@ public final class IrisUniformInstrumentation {
     private static final long REPORT_INTERVAL_NANOS =
         Math.max(1L, Long.getLong("argon.instrumentation.reportIntervalSeconds", 10L)) * 1_000_000_000L;
 
+    private static final long WARMUP_NANOS =
+        Math.max(0L, Long.getLong("argon.instrumentation.warmupSeconds", 5L)) * 1_000_000_000L;
+
     private static final IdentityHashMap<Object, Long> UNIFORM_REVISIONS = new IdentityHashMap<>();
     private static final IdentityHashMap<Object, IdentityHashMap<Object, Long>> PROGRAM_REVISIONS =
         new IdentityHashMap<>();
 
-    private static boolean frameStarted;
+    private static boolean measurementStarted;
+    private static long warmupUntilNanos;
     private static long intervalStartedNanos;
 
     private static long completedFrames;
-    private static long pipelineResets;
-
     private static long evaluations;
     private static long changedEvaluations;
-
     private static long passPushes;
     private static long uploadChecks;
     private static long actualUploads;
-
     private static long simulatedUploadChecks;
     private static long simulatedRequiredUploads;
     private static long simulatedAvoidableUploads;
-
     private static long updateNanos;
     private static long pushNanos;
 
@@ -53,6 +52,10 @@ public final class IrisUniformInstrumentation {
         return ACTIVE;
     }
 
+    public static boolean isMeasuring() {
+        return ACTIVE && measurementStarted;
+    }
+
     public static void onPipelineReset() {
         if (!ACTIVE) {
             return;
@@ -60,7 +63,16 @@ public final class IrisUniformInstrumentation {
 
         UNIFORM_REVISIONS.clear();
         PROGRAM_REVISIONS.clear();
-        pipelineResets++;
+        resetMeasurementCounters();
+
+        measurementStarted = false;
+        long now = System.nanoTime();
+        warmupUntilNanos = now + WARMUP_NANOS;
+
+        Argon.LOGGER.info(
+            "[Phase 0][Iris uniforms] Pipeline state reset; warm-up={} second(s).",
+            WARMUP_NANOS / 1_000_000_000L
+        );
     }
 
     public static void onFrameStart() {
@@ -70,11 +82,19 @@ public final class IrisUniformInstrumentation {
 
         long now = System.nanoTime();
 
-        if (!frameStarted) {
-            frameStarted = true;
+        if (warmupUntilNanos == 0L) {
+            warmupUntilNanos = now + WARMUP_NANOS;
+        }
+
+        if (!measurementStarted) {
+            if (now < warmupUntilNanos) {
+                return;
+            }
+
+            measurementStarted = true;
             intervalStartedNanos = now;
             Argon.LOGGER.info(
-                "[Phase 0][Iris uniforms] Instrumentation started; reporting every {} second(s).",
+                "[Phase 0][Iris uniforms] Warm-up complete; reporting every {} second(s).",
                 REPORT_INTERVAL_NANOS / 1_000_000_000L
             );
             return;
@@ -88,7 +108,7 @@ public final class IrisUniformInstrumentation {
     }
 
     public static void onEvaluation() {
-        if (ACTIVE) {
+        if (measurementStarted) {
             evaluations++;
         }
     }
@@ -99,8 +119,10 @@ public final class IrisUniformInstrumentation {
         }
 
         if (changed) {
-            changedEvaluations++;
             UNIFORM_REVISIONS.put(uniform, UNIFORM_REVISIONS.getOrDefault(uniform, 0L) + 1L);
+            if (measurementStarted) {
+                changedEvaluations++;
+            }
         } else {
             UNIFORM_REVISIONS.putIfAbsent(uniform, 0L);
         }
@@ -111,7 +133,9 @@ public final class IrisUniformInstrumentation {
             return;
         }
 
-        passPushes++;
+        if (measurementStarted) {
+            passPushes++;
+        }
 
         if (!(mappedUniforms instanceof Map<?, ?> uniforms)) {
             return;
@@ -121,22 +145,27 @@ public final class IrisUniformInstrumentation {
             PROGRAM_REVISIONS.computeIfAbsent(pass, ignored -> new IdentityHashMap<>());
 
         for (Object uniform : uniforms.keySet()) {
-            simulatedUploadChecks++;
-
             long revision = UNIFORM_REVISIONS.getOrDefault(uniform, 0L);
             Long uploadedRevision = uploaded.get(uniform);
+            boolean required = uploadedRevision == null || uploadedRevision.longValue() != revision;
 
-            if (uploadedRevision == null || uploadedRevision.longValue() != revision) {
-                simulatedRequiredUploads++;
+            if (measurementStarted) {
+                simulatedUploadChecks++;
+                if (required) {
+                    simulatedRequiredUploads++;
+                } else {
+                    simulatedAvoidableUploads++;
+                }
+            }
+
+            if (required) {
                 uploaded.put(uniform, revision);
-            } else {
-                simulatedAvoidableUploads++;
             }
         }
     }
 
     public static void onUploadCheck(boolean uploaded) {
-        if (!ACTIVE) {
+        if (!measurementStarted) {
             return;
         }
 
@@ -147,13 +176,13 @@ public final class IrisUniformInstrumentation {
     }
 
     public static void onUpdateDuration(long nanos) {
-        if (ACTIVE) {
+        if (measurementStarted) {
             updateNanos += nanos;
         }
     }
 
     public static void onPushDuration(long nanos) {
-        if (ACTIVE) {
+        if (measurementStarted) {
             pushNanos += nanos;
         }
     }
@@ -162,9 +191,8 @@ public final class IrisUniformInstrumentation {
         long frames = Math.max(1L, completedFrames);
 
         Argon.LOGGER.info(
-            "[Phase 0][Iris uniforms] frames={} resets={} uniforms={} programs={} eval/frame={} changed={}%, stable={}%, passPush/frame={}, actualUploads/frame={}, simulatedRequired/frame={}, simulatedAvoidable/frame={}, simulatedSkip={}%, instrumentedUpdateUs/frame={}, instrumentedPushUs/frame={}",
+            "[Phase 0][Iris uniforms] frames={} uniforms={} programs={} eval/frame={} changed={}%, stable={}%, passPush/frame={}, actualUploads/frame={}, simulatedRequired/frame={}, simulatedAvoidable/frame={}, simulatedSkip={}%, instrumentedUpdateUs/frame={}, instrumentedPushUs/frame={}",
             completedFrames,
-            pipelineResets,
             UNIFORM_REVISIONS.size(),
             PROGRAM_REVISIONS.size(),
             perFrame(evaluations, frames),
@@ -187,8 +215,12 @@ public final class IrisUniformInstrumentation {
             );
         }
 
+        resetMeasurementCounters();
+        intervalStartedNanos = now;
+    }
+
+    private static void resetMeasurementCounters() {
         completedFrames = 0L;
-        pipelineResets = 0L;
         evaluations = 0L;
         changedEvaluations = 0L;
         passPushes = 0L;
@@ -199,7 +231,6 @@ public final class IrisUniformInstrumentation {
         simulatedAvoidableUploads = 0L;
         updateNanos = 0L;
         pushNanos = 0L;
-        intervalStartedNanos = now;
     }
 
     private static double perFrame(long value, long frames) {

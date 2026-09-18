@@ -30,29 +30,30 @@ abstract class CustomUniformsMixin {
 
     @Inject(method = "update", at = @At("HEAD"), remap = false)
     private void argon$beginUpdate(CallbackInfo ci) {
-        if (IrisUniformInstrumentation.isEnabled()) {
+        if (IrisUniformInstrumentation.isMeasuring()) {
             argon$updateStartedNanos = System.nanoTime();
         }
     }
 
     @Inject(method = "update", at = @At("RETURN"), remap = false)
     private void argon$endUpdate(CallbackInfo ci) {
-        if (IrisUniformInstrumentation.isEnabled()) {
+        if (IrisUniformInstrumentation.isMeasuring()) {
             IrisUniformInstrumentation.onUpdateDuration(System.nanoTime() - argon$updateStartedNanos);
         }
     }
 
     @Inject(method = "push", at = @At("HEAD"), remap = false)
     private void argon$beginPush(Object pass, CallbackInfo ci) {
-        if (IrisUniformInstrumentation.isEnabled()) {
-            IrisUniformInstrumentation.onPassPush(pass, locationMap.get(pass));
+        IrisUniformInstrumentation.onPassPush(pass, locationMap.get(pass));
+
+        if (IrisUniformInstrumentation.isMeasuring()) {
             argon$pushStartedNanos = System.nanoTime();
         }
     }
 
     @Inject(method = "push", at = @At("RETURN"), remap = false)
     private void argon$endPush(Object pass, CallbackInfo ci) {
-        if (IrisUniformInstrumentation.isEnabled()) {
+        if (IrisUniformInstrumentation.isMeasuring()) {
             IrisUniformInstrumentation.onPushDuration(System.nanoTime() - argon$pushStartedNanos);
         }
     }

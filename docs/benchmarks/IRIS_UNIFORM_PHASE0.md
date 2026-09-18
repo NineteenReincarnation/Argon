@@ -8,17 +8,56 @@ Target stack:
 - Spooklementary 2.0.4
 - Argon 0.1.0 development line
 
+Pinned Iris source used for the 26.2 audit:
+
+```text
+f61d950f556f3962d0e2e29c270bc1865572b35d
+```
+
 ## Validation status
 
 The instrumentation currently has **CI compile validation only**. No in-game capture has been performed yet.
 
-Until runtime testing is completed, numbers shown in this document are field definitions and decision rules, not measured results.
+Until runtime testing is completed, field descriptions and decision rules below are not measured results.
+
+## Static source audit
+
+The pinned Iris 1.11.4 source confirms the assumptions behind Phase 0:
+
+- `CachedUniform.update()` calls `doUpdate()`, discards its boolean result, and then sets `changed = true`.
+- `CustomUniforms.locationMap` maps pass/program objects to the cached uniforms and GL locations used by that pass.
+- `mapholderToPass(...)` replaces the temporary builder key with the actual program/pass object.
+- Iris renderers retain their `Program` / `ComputeProgram` objects across frames.
+- pipeline/program reconstruction creates new program objects; a new `CustomUniforms` instance clears Argon's simulated revision state.
+- the Iris 1.11.4 release runtime version is `1.11.4+mc26.2`.
+
+These observations are source-level validation only. Runtime behavior still needs game testing.
 
 ## Purpose
 
 Phase 0 measures the existing Iris custom-uniform pipeline. It intentionally does **not** skip evaluations, skip uploads, alter shader settings, or modify shader-visible values.
 
 It also simulates the proposed Phase A revision model in memory, without affecting Iris behavior. This estimates how many uploads would be required if each shader program only received a uniform when that uniform's value revision changed for that program.
+
+## Measurement window
+
+After Iris creates/recreates the custom-uniform pipeline, Argon enters a warm-up period.
+
+Default:
+
+```text
+5 seconds
+```
+
+During warm-up, revision/program state is still tracked so the simulation reaches steady state, but counters and timings are not included in the report.
+
+Override:
+
+```text
+-Dargon.instrumentation.warmupSeconds=10
+```
+
+Set to `0` to disable warm-up.
 
 ## Instrumented values
 
@@ -35,7 +74,7 @@ Argon records:
 - instrumented wall-clock time around `CustomUniforms.update()`;
 - instrumented wall-clock time around `CustomUniforms.push(...)`.
 
-A log report is emitted approximately every 10 seconds.
+A log report is emitted approximately every 10 seconds after warm-up.
 
 Important fields:
 
@@ -63,21 +102,11 @@ instrumentedPushUs/frame
 
 For actual performance claims, use A/B builds and an external profiler/benchmark method. Do not subtract these diagnostic timings and call the difference an Argon speedup.
 
-## Hot-path instrumentation rule
-
-Compatibility/version detection is resolved once when the instrumentation class initializes. Per-uniform events read a cached boolean and do not repeatedly query Fabric Loader.
-
-The detailed revision simulation itself is intentionally more expensive than the future optimization would be. Its purpose is to establish whether the opportunity exists.
-
-## Pipeline invalidation
-
-When Iris creates a new `CustomUniforms` instance, Argon clears the simulation's per-uniform and per-program revision state. This models the required invalidation behavior after pipeline/shader reconstruction.
-
 ## Runtime switches
 
 Instrumentation is enabled by default in the current development build.
 
-Disable it:
+Disable:
 
 ```text
 -Dargon.instrumentation.irisUniforms=false
