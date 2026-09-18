@@ -57,12 +57,14 @@ Third-party source pointers are pinned per Minecraft version.
 
 ## Runtime compatibility gate
 
-A version-specific Mixin must fail closed when its external target version has not been validated.
+A version-specific Mixin fails closed when its external target version has not been validated.
 
-For the current Iris work, the 26.2 integration is gated to the exact baseline:
+For the current Iris work, the 26.2 integration is gated to the exact Fabric metadata baseline:
 
-- Minecraft 26.2
-- Iris 1.11.4
+- Minecraft `26.2`
+- Iris `1.11.4+mc26.2`
+
+The human-facing Iris release is 1.11.4; its 26.2 Fabric build appends `+mc26.2` to the runtime version string.
 
 Unknown Iris versions do not automatically receive the patch. Compatibility can be widened only after source review and runtime validation.
 

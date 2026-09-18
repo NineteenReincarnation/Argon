@@ -6,8 +6,8 @@ import java.util.Optional;
 
 public final class CompatibilityBaseline26_2 {
     public static final String MINECRAFT = "26.2";
-    public static final String IRIS = "1.11.4";
-    public static final String SODIUM = "0.9.2";
+    public static final String IRIS = "1.11.4+mc26.2";
+    public static final String SODIUM = "0.9.2+mc26.2";
     public static final String SPOOKLEMENTARY = "2.0.4";
 
     private CompatibilityBaseline26_2() {
