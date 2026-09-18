@@ -13,9 +13,10 @@ public final class ArgonClient implements ClientModInitializer {
         String sodium = CompatibilityBaseline26_2.installedVersion("sodium").orElse("missing");
 
         Argon.LOGGER.info(
-            "Argon client baseline: Minecraft {}, Iris {}, Sodium {}.",
+            "Argon client baseline: Minecraft {}, Iris {} ({}), Sodium {}.",
             minecraft,
             iris,
+            CompatibilityBaseline26_2.irisCompatibility(),
             sodium
         );
 

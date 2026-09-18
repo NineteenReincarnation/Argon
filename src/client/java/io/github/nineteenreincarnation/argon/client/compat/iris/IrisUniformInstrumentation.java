@@ -13,7 +13,7 @@ public final class IrisUniformInstrumentation {
     private static final boolean ACTIVE =
         REQUESTED
             && CompatibilityBaseline26_2.isMinecraftTarget()
-            && CompatibilityBaseline26_2.isSupportedIris();
+            && CompatibilityBaseline26_2.supportsIrisPhase0();
 
     private static final long REPORT_INTERVAL_NANOS =
         Math.max(1L, Long.getLong("argon.instrumentation.reportIntervalSeconds", 10L)) * 1_000_000_000L;

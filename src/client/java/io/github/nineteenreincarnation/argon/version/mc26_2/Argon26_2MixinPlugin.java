@@ -28,27 +28,34 @@ public final class Argon26_2MixinPlugin implements IMixinConfigPlugin {
         }
 
         boolean minecraftSupported = CompatibilityBaseline26_2.isMinecraftTarget();
-        boolean irisSupported = CompatibilityBaseline26_2.isSupportedIris();
-        boolean apply = minecraftSupported && irisSupported;
+        CompatibilityBaseline26_2.IrisCompatibility irisCompatibility =
+            CompatibilityBaseline26_2.irisCompatibility();
+        boolean apply = minecraftSupported && CompatibilityBaseline26_2.supportsIrisPhase0();
 
         if (!loggedIrisDecision) {
             loggedIrisDecision = true;
+
             String minecraft = CompatibilityBaseline26_2.installedVersion("minecraft").orElse("missing");
             String iris = CompatibilityBaseline26_2.installedVersion("iris").orElse("missing");
 
             if (apply) {
                 Argon.LOGGER.info(
-                    "Enabling Minecraft 26.2 Iris integration (Minecraft {}, Iris {}).",
+                    "Enabling Minecraft 26.2 Iris Phase 0 integration (Minecraft {}, Iris {}, compatibility {}).",
                     minecraft,
-                    iris
+                    iris,
+                    irisCompatibility
+                );
+            } else if (irisCompatibility == CompatibilityBaseline26_2.IrisCompatibility.NOT_INSTALLED) {
+                Argon.LOGGER.info(
+                    "Iris is not installed; Iris-specific Argon Mixins are disabled."
                 );
             } else {
                 Argon.LOGGER.warn(
-                    "Disabling Minecraft 26.2 Iris integration: expected Minecraft {} / Iris {}, found Minecraft {} / Iris {}.",
-                    CompatibilityBaseline26_2.MINECRAFT,
-                    CompatibilityBaseline26_2.IRIS,
+                    "Disabling Iris-specific Argon Mixins: Minecraft {}, Iris {}, compatibility {}. Structure-verified Iris versions: {}.",
                     minecraft,
-                    iris
+                    iris,
+                    irisCompatibility,
+                    CompatibilityBaseline26_2.IRIS_PHASE0_STRUCTURE_VERIFIED
                 );
             }
         }
