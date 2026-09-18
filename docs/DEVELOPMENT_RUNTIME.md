@@ -1,0 +1,73 @@
+# Development Runtime — Minecraft 26.2
+
+This document describes the reproducible development client used for the primary Argon shader baseline.
+
+## Primary shader stack
+
+- Minecraft 26.2
+- Fabric Loader 0.19.5
+- Sodium 0.9.2
+- Iris 1.11.4
+- Spooklementary 2.0.4
+- Argon current v0.1.0 development build
+
+The Sodium/Iris versions are development runtime dependencies only. They are **not bundled into the Argon JAR**.
+
+## First setup
+
+Initialize the pinned reference submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
+The Spooklementary source must exist at:
+
+```text
+References/26.2/third-party/spooklementary/
+```
+
+## Start the primary shader development client
+
+Linux/macOS:
+
+```bash
+./gradlew runClient -Pargon_dev_shader_stack=true
+```
+
+Windows PowerShell:
+
+```powershell
+.\gradlew.bat runClient -Pargon_dev_shader_stack=true
+```
+
+When this property is enabled, Gradle:
+
+1. adds the pinned Sodium and Iris release JARs to the local development runtime;
+2. copies the pinned Spooklementary 2.0.4 source tree into the development instance's `run/shaderpacks/`;
+3. writes `run/config/iris.properties` selecting that shader pack and enabling shaders;
+4. starts the normal Loom development client with Argon loaded.
+
+The generated development files under `run/` are ignored by Git.
+
+## Normal development client
+
+To run Minecraft without the primary Iris/Sodium shader stack:
+
+```bash
+./gradlew runClient
+```
+
+This is useful for checking that Argon itself does not require Iris.
+
+## Important validation distinction
+
+A successful Gradle launch configuration or dependency resolution is not an in-game validation result.
+
+Runtime validation begins only after the client actually reaches the intended test state and the logs confirm the relevant Argon Mixins are active.
+
+## Testing other structure-verified Iris patches
+
+The Phase 0 compatibility matrix currently structure-verifies Iris 1.11.0, 1.11.1, 1.11.2, and 1.11.4 for Minecraft 26.2.
+
+The automated development stack intentionally remains pinned to the **primary baseline** (1.11.4 + Sodium 0.9.2). Older Iris patches can be tested separately when runtime compatibility testing begins.

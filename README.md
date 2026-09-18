@@ -60,6 +60,14 @@ The installable JAR is produced under `build/libs/`.
 
 GitHub Actions builds development JAR artifacts automatically.
 
+For the pinned Iris + Sodium + Spooklementary development client:
+
+```powershell
+.\\gradlew.bat runClient -Pargon_dev_shader_stack=true
+```
+
+See [docs/DEVELOPMENT_RUNTIME.md](docs/DEVELOPMENT_RUNTIME.md).
+
 ## Development model
 
 ```text

@@ -36,12 +36,21 @@ configurations {
     irisCompatibilityProbe
 }
 
+def shaderDevStackEnabled = providers.gradleProperty("argon_dev_shader_stack")
+    .map { it.toBoolean() }
+    .orElse(false)
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
     if (providers.gradleProperty("iris_probe_version").isPresent()) {
         irisCompatibilityProbe "maven.modrinth:iris:${providers.gradleProperty("iris_probe_version").get()}"
+    }
+
+    if (shaderDevStackEnabled.get()) {
+        localRuntime "maven.modrinth:sodium:${project.dev_sodium_version}"
+        localRuntime "maven.modrinth:iris:${project.dev_iris_version}"
     }
 }
 
@@ -53,6 +62,56 @@ tasks.register("resolveIrisCompatibilityProbe", Copy) {
     from configurations.irisCompatibilityProbe
     into layout.buildDirectory.dir("compatibility/iris")
     rename { "iris-probe.jar" }
+}
+
+tasks.register("prepareSpooklementaryBenchmark") {
+    group = "argon development"
+    description = "Prepares the pinned Spooklementary shader pack and Iris config for the 26.2 development client."
+
+    doLast {
+        File sourceDir = file("References/26.2/third-party/spooklementary")
+        File shaderDir = new File(sourceDir, "shaders")
+
+        if (!shaderDir.isDirectory()) {
+            throw new GradleException(
+                "Spooklementary reference source is not initialized. Run: git submodule update --init --recursive"
+            )
+        }
+
+        String packName = "Spooklementary-2.0.4-ArgonBaseline"
+        File targetDir = file("run/shaderpacks/${packName}")
+
+        delete targetDir
+        copy {
+            from sourceDir
+            into targetDir
+            exclude ".git"
+            exclude ".github"
+        }
+
+        File configDir = file("run/config")
+        configDir.mkdirs()
+
+        File irisConfig = new File(configDir, "iris.properties")
+        irisConfig.setText(
+            "shaderPack=${packName}\n" +
+            "enableShaders=true\n" +
+            "allowUnknownShaders=false\n" +
+            "enableDebugOptions=false\n" +
+            "disableUpdateMessage=true\n" +
+            "maxShadowRenderDistance=32\n" +
+            "colorSpace=SRGB\n",
+            "ISO-8859-1"
+        )
+
+        logger.lifecycle("Prepared ${packName} in ${targetDir}.")
+    }
+}
+
+tasks.named("runClient").configure {
+    if (shaderDevStackEnabled.get()) {
+        dependsOn "prepareSpooklementaryBenchmark"
+    }
 }
 
 version = project.mod_version
