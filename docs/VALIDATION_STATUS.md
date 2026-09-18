@@ -12,7 +12,7 @@ This file distinguishes what Argon has actually validated from what is only desi
 - The remapped installable JAR is produced successfully.
 - CI inspects the packaged JAR and confirms the expected core classes, 26.2 Mixin plugin, Iris Mixin, `fabric.mod.json`, and Mixin configuration are present.
 - The development JAR is uploaded as a GitHub Actions artifact.
-- Iris 1.11.0, 1.11.1, 1.11.2, and 1.11.4 Fabric builds for Minecraft 26.2 all pass the current Phase 0 Mixin target-surface audit.
+- Iris 1.11.0, 1.11.1, 1.11.2, and 1.11.4 Fabric builds for Minecraft 26.2 all pass the current Phase 0 Mixin target-surface audit and the static Phase A behavior-assumption audit.
 
 ### Compatibility meaning
 
@@ -50,3 +50,10 @@ Project documentation, issues, pull requests, and changelogs must distinguish:
 - **performance benchmark verified**
 
 A successful compile/package/structure audit is never treated as evidence of runtime correctness or performance improvement.
+
+
+### Experimental Phase A compatibility
+
+The default-off Phase A uniform deduplication switch may be explicitly enabled on Iris 1.11.0, 1.11.1, 1.11.2, or 1.11.4 for Minecraft 26.2 because all four pass the current structural and bytecode behavior audits.
+
+This does not promote any of them to runtime-verified status.

@@ -16,6 +16,9 @@ public final class CompatibilityBaseline26_2 {
         IRIS_PRIMARY
     );
 
+    public static final Set<String> IRIS_PHASE_A_STRUCTURE_VERIFIED =
+        Set.copyOf(IRIS_PHASE0_STRUCTURE_VERIFIED);
+
     public static final String SODIUM_PRIMARY = "0.9.2+mc26.2";
     public static final String SPOOKLEMENTARY_PRIMARY = "2.0.4";
 
@@ -54,7 +57,9 @@ public final class CompatibilityBaseline26_2 {
     }
 
     public static boolean supportsIrisPhaseA() {
-        return irisCompatibility() == IrisCompatibility.PRIMARY_BASELINE;
+        return installedVersion("iris")
+            .map(IRIS_PHASE_A_STRUCTURE_VERIFIED::contains)
+            .orElse(false);
     }
 
     public static Optional<String> installedVersion(String modId) {

@@ -15,10 +15,10 @@ That baseline is not the only Iris patch release accepted by the current Phase 0
 
 | Iris release | Runtime version | Sodium line | Structural CI | In-game validation | Argon Phase 0 status |
 | --- | --- | --- | --- | --- | --- |
-| 1.11.0 | `1.11.0+mc26.2` | 0.9.0 | Passed | Not tested | Enabled |
-| 1.11.1 | `1.11.1+mc26.2` | 0.9.0 | Passed | Not tested | Enabled |
-| 1.11.2 | `1.11.2+mc26.2` | 0.9.1 | Passed | Not tested | Enabled |
-| 1.11.4 | `1.11.4+mc26.2` | 0.9.2 | Passed | Not tested | Enabled / primary baseline |
+| 1.11.0 | `1.11.0+mc26.2` | 0.9.0 | Passed | Not tested | Phase 0 + explicit Phase A experiment |
+| 1.11.1 | `1.11.1+mc26.2` | 0.9.0 | Passed | Not tested | Phase 0 + explicit Phase A experiment |
+| 1.11.2 | `1.11.2+mc26.2` | 0.9.1 | Passed | Not tested | Phase 0 + explicit Phase A experiment |
+| 1.11.4 | `1.11.4+mc26.2` | 0.9.2 | Passed | Not tested | Phase 0 + explicit Phase A experiment / primary baseline |
 
 No Fabric 26.2 release of Iris 1.11.3 is included in this matrix because the 1.11.3 Fabric release belongs to the 26.1 line.
 
@@ -68,3 +68,17 @@ Behavior-changing optimizations may use a stricter compatibility set than instru
 Do not use a blanket `startsWith("1.11")` gate.
 
 A new Iris 26.2 patch enters the candidate matrix first. CI checks the required target surface. If the structure is compatible, measurement-only instrumentation may be enabled. Runtime, visual, and performance validation remain separate states.
+
+
+## Phase A structural gate
+
+CI now validates the behavior assumptions required by the experimental upload-deduplication path for every 26.2 Iris version in this matrix:
+
+- `CachedUniform.update()` still calls `doUpdate()`;
+- Iris still forces the shared `changed` flag true after that update;
+- `CustomUniforms.push()` still routes through `CachedUniform.pushIfChanged(int)`;
+- the Phase 0 target surface remains present.
+
+All four published Iris 1.11.x Fabric builds for Minecraft 26.2 currently pass those checks.
+
+Therefore the **explicit, default-off Phase A experiment** is structurally eligible on all four versions. Runtime, visual, and performance validation remain separate and are still pending.

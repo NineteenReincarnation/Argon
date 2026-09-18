@@ -131,7 +131,7 @@ The experimental switch maps to:
 -Dargon.experimental.irisUniformDedup=true
 ```
 
-For now, Phase A activates only on the primary Minecraft 26.2 / Iris 1.11.4 runtime baseline. The older structure-verified Iris 1.11.x patches remain eligible for Phase 0 measurement but not for behavior-changing deduplication until runtime validation expands the Phase A compatibility set.
+Phase A may now be explicitly enabled on the structure/behavior-verified Minecraft 26.2 Iris releases 1.11.0, 1.11.1, 1.11.2, and 1.11.4. The automated development runtime remains pinned to 1.11.4 + Sodium 0.9.2 as the primary baseline.
 
 The CSV records whether Phase A was active for each measurement row.
 
