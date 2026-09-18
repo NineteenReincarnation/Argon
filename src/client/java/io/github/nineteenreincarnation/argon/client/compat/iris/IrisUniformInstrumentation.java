@@ -10,6 +10,11 @@ public final class IrisUniformInstrumentation {
     private static final boolean REQUESTED =
         Boolean.parseBoolean(System.getProperty("argon.instrumentation.irisUniforms", "true"));
 
+    private static final boolean ACTIVE =
+        REQUESTED
+            && CompatibilityBaseline26_2.isMinecraftTarget()
+            && CompatibilityBaseline26_2.isSupportedIris();
+
     private static final long REPORT_INTERVAL_NANOS =
         Math.max(1L, Long.getLong("argon.instrumentation.reportIntervalSeconds", 10L)) * 1_000_000_000L;
 
@@ -45,13 +50,11 @@ public final class IrisUniformInstrumentation {
     }
 
     public static boolean isEnabled() {
-        return REQUESTED
-            && CompatibilityBaseline26_2.isMinecraftTarget()
-            && CompatibilityBaseline26_2.isSupportedIris();
+        return ACTIVE;
     }
 
     public static void onPipelineReset() {
-        if (!isEnabled()) {
+        if (!ACTIVE) {
             return;
         }
 
@@ -61,7 +64,7 @@ public final class IrisUniformInstrumentation {
     }
 
     public static void onFrameStart() {
-        if (!isEnabled()) {
+        if (!ACTIVE) {
             return;
         }
 
@@ -85,13 +88,13 @@ public final class IrisUniformInstrumentation {
     }
 
     public static void onEvaluation() {
-        if (isEnabled()) {
+        if (ACTIVE) {
             evaluations++;
         }
     }
 
     public static void onEvaluationResult(Object uniform, boolean changed) {
-        if (!isEnabled()) {
+        if (!ACTIVE) {
             return;
         }
 
@@ -104,7 +107,7 @@ public final class IrisUniformInstrumentation {
     }
 
     public static void onPassPush(Object pass, Object mappedUniforms) {
-        if (!isEnabled()) {
+        if (!ACTIVE) {
             return;
         }
 
@@ -133,7 +136,7 @@ public final class IrisUniformInstrumentation {
     }
 
     public static void onUploadCheck(boolean uploaded) {
-        if (!isEnabled()) {
+        if (!ACTIVE) {
             return;
         }
 
@@ -144,13 +147,13 @@ public final class IrisUniformInstrumentation {
     }
 
     public static void onUpdateDuration(long nanos) {
-        if (isEnabled()) {
+        if (ACTIVE) {
             updateNanos += nanos;
         }
     }
 
     public static void onPushDuration(long nanos) {
-        if (isEnabled()) {
+        if (ACTIVE) {
             pushNanos += nanos;
         }
     }
@@ -159,9 +162,11 @@ public final class IrisUniformInstrumentation {
         long frames = Math.max(1L, completedFrames);
 
         Argon.LOGGER.info(
-            "[Phase 0][Iris uniforms] frames={} resets={} eval/frame={} changed={}%, stable={}%, passPush/frame={}, actualUploads/frame={}, simulatedRequired/frame={}, simulatedAvoidable/frame={}, simulatedSkip={}%, updateUs/frame={}, pushUs/frame={}",
+            "[Phase 0][Iris uniforms] frames={} resets={} uniforms={} programs={} eval/frame={} changed={}%, stable={}%, passPush/frame={}, actualUploads/frame={}, simulatedRequired/frame={}, simulatedAvoidable/frame={}, simulatedSkip={}%, instrumentedUpdateUs/frame={}, instrumentedPushUs/frame={}",
             completedFrames,
             pipelineResets,
+            UNIFORM_REVISIONS.size(),
+            PROGRAM_REVISIONS.size(),
             perFrame(evaluations, frames),
             percent(changedEvaluations, evaluations),
             100.0D - percent(changedEvaluations, evaluations),

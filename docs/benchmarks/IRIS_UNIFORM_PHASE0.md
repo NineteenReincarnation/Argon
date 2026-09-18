@@ -31,8 +31,9 @@ Argon records:
 - simulated per-program upload checks;
 - simulated uploads required by a revision model;
 - simulated uploads that would be avoidable;
-- CPU time in `CustomUniforms.update()`;
-- CPU time in `CustomUniforms.push(...)`.
+- tracked uniform/program counts;
+- instrumented wall-clock time around `CustomUniforms.update()`;
+- instrumented wall-clock time around `CustomUniforms.push(...)`.
 
 A log report is emitted approximately every 10 seconds.
 
@@ -53,9 +54,20 @@ simulatedAvoidable/frame
 
 simulatedSkip
     simulatedAvoidable / simulatedUploadChecks.
+
+instrumentedUpdateUs/frame
+instrumentedPushUs/frame
+    Diagnostic timing collected while detailed instrumentation hooks are active.
+    These values include instrumentation overhead and are NOT final benchmark evidence.
 ```
 
-The simulated model is diagnostic only. It does not suppress any Iris upload.
+For actual performance claims, use A/B builds and an external profiler/benchmark method. Do not subtract these diagnostic timings and call the difference an Argon speedup.
+
+## Hot-path instrumentation rule
+
+Compatibility/version detection is resolved once when the instrumentation class initializes. Per-uniform events read a cached boolean and do not repeatedly query Fabric Loader.
+
+The detailed revision simulation itself is intentionally more expensive than the future optimization would be. Its purpose is to establish whether the opportunity exists.
 
 ## Pipeline invalidation
 
