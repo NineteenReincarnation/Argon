@@ -44,6 +44,16 @@ jobs:
                   grep -Fq "maven.modrinth:sodium:mc26.2-0.9.2-fabric" build/dev-runtime-dependencies.txt
                   grep -Fq "maven.modrinth:iris:1.11.4+26.2-fabric" build/dev-runtime-dependencies.txt
 
+            - name: Verify Phase A performance run configuration
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  ./gradlew runClient --dry-run \
+                      -Pargon_dev_shader_stack=true \
+                      -Pargon_phase_a=true \
+                      -Pargon_instrumentation=false \
+                      -Pargon_jfr_file=argon/jfr/ci-probe.jfr
+
             - name: Verify PowerShell helper scripts
               shell: pwsh
               run: |

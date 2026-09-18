@@ -83,3 +83,8 @@ For the first runtime validation, use:
 ```
 
 It launches the primary baseline and extracts Argon's relevant log lines after the client exits. See `docs/FIRST_RUNTIME_TEST.md`.
+
+
+## JFR
+
+Add `-Jfr` to the Windows helper to start a Java Flight Recorder capture. For optimization A/B work, pair it with `-PerformanceMode` so the detailed Phase 0 simulator does not walk the uniform map during the performance capture.

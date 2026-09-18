@@ -1,6 +1,7 @@
 param(
     [switch]$EnablePhaseA,
-    [switch]$PerformanceMode
+    [switch]$PerformanceMode,
+    [switch]$Jfr
 )
 
 $ErrorActionPreference = "Stop"
@@ -54,6 +55,22 @@ if ($PerformanceMode) {
     Write-Host "Detailed Phase 0 instrumentation: enabled"
 }
 
+$JfrAbsolutePath = $null
+
+if ($Jfr) {
+    $JfrDir = Join-Path $RepoRoot "run\argon\jfr"
+    New-Item -ItemType Directory -Force -Path $JfrDir | Out-Null
+
+    $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $Mode = if ($EnablePhaseA) { "phase-a" } else { "baseline" }
+    $JfrName = "$Mode-$Stamp.jfr"
+    $JfrRelativePath = "argon/jfr/$JfrName"
+    $JfrAbsolutePath = Join-Path $JfrDir $JfrName
+
+    $GradleArgs += "-Pargon_jfr_file=$JfrRelativePath"
+    Write-Host "JFR recording: $JfrAbsolutePath"
+}
+
 & .\gradlew.bat @GradleArgs
 
 $GradleExit = $LASTEXITCODE
@@ -94,6 +111,10 @@ if (Test-Path $LatestLog) {
     }
 } else {
     Write-Warning "Minecraft latest.log was not found at: $LatestLog"
+}
+
+if ($JfrAbsolutePath -and (Test-Path $JfrAbsolutePath)) {
+    Write-Host "JFR saved to: $JfrAbsolutePath"
 }
 
 if ($GradleExit -ne 0) {

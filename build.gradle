@@ -33,6 +33,8 @@ def instrumentationEnabled = providers.gradleProperty("argon_instrumentation")
     .map { it.toBoolean() }
     .orElse(true)
 
+def jfrFile = providers.gradleProperty("argon_jfr_file")
+
 loom {
     splitEnvironmentSourceSets()
 
@@ -51,6 +53,10 @@ loom {
 
             if (!instrumentationEnabled.get()) {
                 vmArg "-Dargon.instrumentation.irisUniforms=false"
+            }
+
+            if (jfrFile.isPresent()) {
+                vmArg "-XX:StartFlightRecording=filename=${jfrFile.get()},settings=profile,dumponexit=true"
             }
         }
     }

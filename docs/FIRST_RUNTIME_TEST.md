@@ -174,3 +174,30 @@ Performance mode supplies:
 ```
 
 No Phase 0 CSV is expected in that mode. Use the same external profiler/benchmark procedure for both baseline and Phase A runs.
+
+
+## JFR A/B capture
+
+For CPU/allocation profiling without the detailed Phase 0 simulator:
+
+Baseline:
+
+```powershell
+.\scripts\run-phase0.ps1 -PerformanceMode -Jfr
+```
+
+Phase A:
+
+```powershell
+.\scripts\run-phase0.ps1 -EnablePhaseA -PerformanceMode -Jfr
+```
+
+Recordings are written under:
+
+```text
+run/argon/jfr/
+```
+
+with timestamped `baseline-*.jfr` and `phase-a-*.jfr` names.
+
+Use the same world, camera path/settings, warm-up, and capture duration for the pair. JFR uses the JDK `profile` settings for both runs, so profiler overhead is at least held consistent between baseline and Phase A.
