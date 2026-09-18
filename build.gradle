@@ -8,7 +8,36 @@ base {
 }
 
 repositories {
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Modrinth"
+                url = "https://api.modrinth.com/maven"
+            }
+        }
+        filter {
+            includeGroup "maven.modrinth"
+        }
+    }
 }
+
+def shaderDevStackEnabled = providers.gradleProperty("argon_dev_shader_stack")
+    .map { it.toBoolean() }
+    .orElse(false)
+
+def phaseAEnabled = providers.gradleProperty("argon_phase_a")
+    .map { it.toBoolean() }
+    .orElse(false)
+
+def phaseBEnabled = providers.gradleProperty("argon_phase_b")
+    .map { it.toBoolean() }
+    .orElse(false)
+
+def instrumentationEnabled = providers.gradleProperty("argon_instrumentation")
+    .map { it.toBoolean() }
+    .orElse(true)
+
+def jfrFile = providers.gradleProperty("argon_jfr_file")
 
 loom {
     splitEnvironmentSourceSets()
@@ -19,11 +48,105 @@ loom {
             sourceSet sourceSets.client
         }
     }
+
+    runs {
+        client {
+            if (phaseAEnabled.get()) {
+                vmArg "-Dargon.experimental.irisUniformDedup=true"
+            }
+
+            if (phaseBEnabled.get()) {
+                vmArg "-Dargon.experimental.irisUniformEvaluation=true"
+            }
+
+            if (!instrumentationEnabled.get()) {
+                vmArg "-Dargon.instrumentation.irisUniforms=false"
+            }
+
+            if (jfrFile.isPresent()) {
+                vmArg "-XX:StartFlightRecording=filename=${jfrFile.get()},settings=profile,dumponexit=true"
+            }
+        }
+    }
+}
+
+configurations {
+    irisCompatibilityProbe
 }
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    if (providers.gradleProperty("iris_probe_version").isPresent()) {
+        irisCompatibilityProbe "maven.modrinth:iris:${providers.gradleProperty("iris_probe_version").get()}"
+    }
+
+    if (shaderDevStackEnabled.get()) {
+        localRuntime "net.fabricmc.fabric-api:fabric-api:${project.dev_fabric_api_version}"
+        localRuntime "maven.modrinth:sodium:${project.dev_sodium_version}"
+        localRuntime "maven.modrinth:iris:${project.dev_iris_version}"
+    }
+}
+
+tasks.register("resolveIrisCompatibilityProbe", Copy) {
+    onlyIf {
+        providers.gradleProperty("iris_probe_version").isPresent()
+    }
+
+    from configurations.irisCompatibilityProbe
+    into layout.buildDirectory.dir("compatibility/iris")
+    rename { "iris-probe.jar" }
+}
+
+tasks.register("prepareSpooklementaryBenchmark") {
+    group = "argon development"
+    description = "Prepares the pinned Spooklementary shader pack and Iris config for the 26.2 development client."
+
+    doLast {
+        File sourceDir = file("References/26.2/third-party/spooklementary")
+        File shaderDir = new File(sourceDir, "shaders")
+
+        if (!shaderDir.isDirectory()) {
+            throw new GradleException(
+                "Spooklementary reference source is not initialized. Run: git submodule update --init --recursive"
+            )
+        }
+
+        String packName = "Spooklementary-2.0.4-ArgonBaseline"
+        File targetDir = file("run/shaderpacks/${packName}")
+
+        delete targetDir
+        copy {
+            from sourceDir
+            into targetDir
+            exclude ".git"
+            exclude ".github"
+        }
+
+        File configDir = file("run/config")
+        configDir.mkdirs()
+
+        File irisConfig = new File(configDir, "iris.properties")
+        irisConfig.setText(
+            "shaderPack=${packName}\n" +
+            "enableShaders=true\n" +
+            "allowUnknownShaders=false\n" +
+            "enableDebugOptions=false\n" +
+            "disableUpdateMessage=true\n" +
+            "maxShadowRenderDistance=32\n" +
+            "colorSpace=SRGB\n",
+            "ISO-8859-1"
+        )
+
+        logger.lifecycle("Prepared ${packName} in ${targetDir}.")
+    }
+}
+
+tasks.named("runClient").configure {
+    if (shaderDevStackEnabled.get()) {
+        dependsOn "prepareSpooklementaryBenchmark"
+    }
 }
 
 version = project.mod_version
