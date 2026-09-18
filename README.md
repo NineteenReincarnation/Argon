@@ -6,9 +6,31 @@ Argon is a modular performance optimization mod for **Minecraft Java Edition 26.
 
 **v0.1.0 — Iris / Spooklementary**
 
-The first measured target is the **Iris custom-uniform pipeline**, using **Spooklementary 2.0.4** on **Iris 1.11.4 + Sodium 0.9.2** as the primary real-world shader workload.
+Current development branch:
 
-The initial Phase 0 build performs instrumentation only. It does not intentionally change shader output.
+```text
+dev/26.2/v0.1.0-iris-uniforms
+```
+
+The first measured target is the **Iris custom-uniform pipeline**, using **Spooklementary 2.0.4** on **Iris 1.11.4 + Sodium 0.9.2** as the primary planned real-world shader workload.
+
+### Validation status
+
+The project currently has **CI compile validation only**. No in-game test has been performed yet, and no performance improvement is claimed yet.
+
+See [docs/VALIDATION_STATUS.md](docs/VALIDATION_STATUS.md).
+
+## Version isolation
+
+Minecraft-version-specific work is isolated in dedicated release branches and source integration packages.
+
+```text
+main
+└── mc/26.2
+    └── dev/26.2/v0.1.0-iris-uniforms
+```
+
+Version-sensitive integration code uses explicit packages such as `mc26_2`; reference sources use `References/26.2/`.
 
 ## Goals
 
@@ -22,16 +44,9 @@ The initial Phase 0 build performs instrumentation only. It does not intentional
 
 Requirements: **JDK 25** and Git.
 
-Clone:
-
 ```bash
 git clone --recurse-submodules https://github.com/NineteenReincarnation/Argon.git
 cd Argon
-```
-
-Build:
-
-```bash
 ./gradlew build
 ```
 
@@ -43,9 +58,7 @@ Windows PowerShell:
 
 The installable JAR is produced under `build/libs/`.
 
-Run the Fabric development client with `./gradlew runClient`.
-
-GitHub Actions also builds development JAR artifacts automatically for `main`, `dev/**`, fix branches, and pull requests.
+GitHub Actions builds development JAR artifacts automatically.
 
 ## Development model
 
@@ -65,7 +78,7 @@ Regression / compatibility test
 Merge
 ```
 
-Versioning, branch policy, merge gates, and the v0.1.0 phases are in [docs/PROJECT_MANAGEMENT.md](docs/PROJECT_MANAGEMENT.md).
+See [docs/PROJECT_MANAGEMENT.md](docs/PROJECT_MANAGEMENT.md).
 
 ## References
 

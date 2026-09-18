@@ -1,4 +1,4 @@
-package io.github.nineteenreincarnation.argon.mixin.iris;
+package io.github.nineteenreincarnation.argon.mixin.mc26_2.iris;
 
 import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformInstrumentation;
 import org.spongepowered.asm.mixin.Mixin;
