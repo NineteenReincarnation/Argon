@@ -286,3 +286,22 @@ For a program that was synchronized in the immediately preceding update sequence
 This keeps the incremental path conservative when a program is not rendered every frame.
 
 Diagnostics distinguish `phaseAFastSkip/frame`, `phaseAIncremental/frame`, and `phaseAFullScan/frame`.
+
+
+## Instrumentation versus performance mode
+
+The detailed Phase 0 simulator deliberately performs work that the optimized fast path intends to remove. It is for correctness/opportunity measurement, not final A/B performance claims.
+
+For final Phase A performance runs, disable it with:
+
+```text
+-Dargon.instrumentation.irisUniforms=false
+```
+
+or use the repository helper:
+
+```powershell
+.\scripts\run-phase0.ps1 -EnablePhaseA -PerformanceMode
+```
+
+Compare against the same command without `-EnablePhaseA`.

@@ -29,6 +29,10 @@ def phaseAEnabled = providers.gradleProperty("argon_phase_a")
     .map { it.toBoolean() }
     .orElse(false)
 
+def instrumentationEnabled = providers.gradleProperty("argon_instrumentation")
+    .map { it.toBoolean() }
+    .orElse(true)
+
 loom {
     splitEnvironmentSourceSets()
 
@@ -43,6 +47,10 @@ loom {
         client {
             if (phaseAEnabled.get()) {
                 vmArg "-Dargon.experimental.irisUniformDedup=true"
+            }
+
+            if (!instrumentationEnabled.get()) {
+                vmArg "-Dargon.instrumentation.irisUniforms=false"
             }
         }
     }

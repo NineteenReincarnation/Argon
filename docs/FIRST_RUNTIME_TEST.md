@@ -147,3 +147,30 @@ run/argon/archive/phase0-iris-uniforms-YYYYMMDD-HHMMSS.csv
 This prevents accidental aggregation across unrelated scenarios or old Argon builds.
 
 If one CSV intentionally contains both Phase A OFF and ON rows, `analyze-phase0.ps1` reports the two modes separately instead of mixing them.
+
+
+## Performance-mode A/B
+
+Detailed Phase 0 instrumentation intentionally walks the custom-uniform maps to produce diagnostics. That overhead is useful for correctness analysis but would hide part of Phase A's map-skip benefit.
+
+After correctness testing, run performance measurements with the detailed instrumentation disabled.
+
+Baseline performance run:
+
+```powershell
+.\scripts\run-phase0.ps1 -PerformanceMode
+```
+
+Phase A performance run:
+
+```powershell
+.\scripts\run-phase0.ps1 -EnablePhaseA -PerformanceMode
+```
+
+Performance mode supplies:
+
+```text
+-Dargon.instrumentation.irisUniforms=false
+```
+
+No Phase 0 CSV is expected in that mode. Use the same external profiler/benchmark procedure for both baseline and Phase A runs.

@@ -1,5 +1,6 @@
 param(
-    [switch]$EnablePhaseA
+    [switch]$EnablePhaseA,
+    [switch]$PerformanceMode
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,6 +47,13 @@ if ($EnablePhaseA) {
     Write-Host "Experimental Phase A uniform upload deduplication: disabled"
 }
 
+if ($PerformanceMode) {
+    $GradleArgs += "-Pargon_instrumentation=false"
+    Write-Host "Detailed Phase 0 instrumentation: disabled (performance mode)"
+} else {
+    Write-Host "Detailed Phase 0 instrumentation: enabled"
+}
+
 & .\gradlew.bat @GradleArgs
 
 $GradleExit = $LASTEXITCODE
@@ -78,6 +86,8 @@ if (Test-Path $LatestLog) {
 
         if (Test-Path $CsvPath) {
             Write-Host "Structured Phase 0 CSV: $CsvPath"
+        } elseif ($PerformanceMode) {
+            Write-Host "No Phase 0 CSV expected: detailed instrumentation was disabled."
         }
     } else {
         Write-Warning "No Argon Phase 0 lines were found in latest.log."
