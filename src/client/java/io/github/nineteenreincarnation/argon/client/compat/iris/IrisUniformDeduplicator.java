@@ -90,6 +90,7 @@ public final class IrisUniformDeduplicator {
 
         operational = false;
         PROGRAM_STATES.clear();
+        IrisUniformInstrumentation.onPhaseAFallback();
 
         Argon.LOGGER.error(
             "Disabling experimental Iris uniform deduplication for this session: {} Falling back to Iris' original upload path.",

@@ -33,7 +33,7 @@ public final class IrisUniformInstrumentation {
         FabricLoader.getInstance().getGameDir().resolve("argon").resolve("phase0-iris-uniforms.csv");
 
     private static final IdentityHashMap<Object, Boolean> SEEN_UNIFORMS = new IdentityHashMap<>();
-    private static final IdentityHashMap<Object, IdentityHashMap<Object, Long>> PROGRAM_REVISIONS =
+    private static final IdentityHashMap<Object, SimulatedProgramState> PROGRAM_REVISIONS =
         new IdentityHashMap<>();
 
     private static boolean measurementStarted;
@@ -157,8 +157,13 @@ public final class IrisUniformInstrumentation {
             return;
         }
 
-        IdentityHashMap<Object, Long> uploaded =
-            PROGRAM_REVISIONS.computeIfAbsent(pass, ignored -> new IdentityHashMap<>());
+        SimulatedProgramState programState = PROGRAM_REVISIONS.get(pass);
+        if (programState == null || programState.locationMapIdentity() != mappedUniforms) {
+            programState = new SimulatedProgramState(mappedUniforms);
+            PROGRAM_REVISIONS.put(pass, programState);
+        }
+
+        IdentityHashMap<Object, Long> uploaded = programState.uploadedRevisions();
 
         for (Object uniform : uniforms.keySet()) {
             boolean revisionAvailable = uniform instanceof IrisUniformDeduplicator.UniformState;
@@ -272,6 +277,14 @@ public final class IrisUniformInstrumentation {
             );
         }
 
+        if (IrisUniformDeduplicator.isEnabled() && actualUploads != simulatedRequiredUploads) {
+            Argon.LOGGER.warn(
+                "[Phase A][Iris uniforms] Revision consistency mismatch: actual required uploads={} simulated required uploads={}.",
+                actualUploads,
+                simulatedRequiredUploads
+            );
+        }
+
         appendCsv(report);
 
         resetMeasurementCounters();
@@ -351,6 +364,19 @@ public final class IrisUniformInstrumentation {
         return "\"" + value.replace("\"", "\"\"") + "\"";
     }
 
+    public static void onPhaseAFallback() {
+        if (!ACTIVE || !measurementStarted) {
+            return;
+        }
+
+        resetMeasurementCounters();
+        intervalStartedNanos = System.nanoTime();
+
+        Argon.LOGGER.warn(
+            "[Phase 0][Iris uniforms] Discarded the current measurement window because Phase A fell back to Iris' original upload path."
+        );
+    }
+
     private static void resetMeasurementCounters() {
         completedFrames = 0L;
         evaluations = 0L;
@@ -380,6 +406,15 @@ public final class IrisUniformInstrumentation {
             return 0.0D;
         }
         return ((double) numerator * 100.0D) / (double) denominator;
+    }
+
+    private record SimulatedProgramState(
+        Object locationMapIdentity,
+        IdentityHashMap<Object, Long> uploadedRevisions
+    ) {
+        private SimulatedProgramState(Object locationMapIdentity) {
+            this(locationMapIdentity, new IdentityHashMap<>());
+        }
     }
 
     private record Report(

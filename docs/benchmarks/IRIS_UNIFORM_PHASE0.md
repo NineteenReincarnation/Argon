@@ -246,3 +246,12 @@ phaseAScan/frame
 ```
 
 The first counts program pushes that were resolved by the epoch fast path without walking the uniform map. The second counts pushes that entered the per-uniform revision scan.
+
+
+### Phase A consistency checks
+
+The Phase 0 simulator now uses the same pass + location-map identity invalidation rule as Phase A.
+
+When Phase A is active, Argon compares the number of uploads the experimental path actually performs with the number required by the independent revision simulation for the same interval. A mismatch is logged as a warning.
+
+If Phase A disables itself during a measurement window, Argon discards that mixed window before returning to Iris' original path so the CSV does not blend experimental and baseline behavior.
