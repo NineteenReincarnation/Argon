@@ -236,3 +236,13 @@ Phase A does not trust Java pass identity alone. Each pass state also remembers 
 If Iris reuses a Java pass object but rebuilds/remaps its uniform locations, the location-map identity changes. Argon then discards that pass's uploaded-revision history and treats the next use as a first use, forcing the required uploads.
 
 CI now checks the Phase A `CachedUniform.update()` / `CustomUniforms.push()` bytecode assumptions for every published Iris 1.11.x Fabric build in the Minecraft 26.2 compatibility matrix, not only the primary 1.11.4 baseline.
+
+
+Phase A diagnostics additionally report:
+
+```text
+phaseAFastSkip/frame
+phaseAScan/frame
+```
+
+The first counts program pushes that were resolved by the epoch fast path without walking the uniform map. The second counts pushes that entered the per-uniform revision scan.

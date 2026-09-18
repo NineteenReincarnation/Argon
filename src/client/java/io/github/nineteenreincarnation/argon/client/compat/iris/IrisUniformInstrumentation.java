@@ -51,6 +51,8 @@ public final class IrisUniformInstrumentation {
     private static long simulatedUploadChecks;
     private static long simulatedRequiredUploads;
     private static long simulatedAvoidableUploads;
+    private static long phaseAFastPathSkips;
+    private static long phaseARevisionScans;
     private static long updateNanos;
     private static long pushNanos;
 
@@ -193,6 +195,18 @@ public final class IrisUniformInstrumentation {
         }
     }
 
+    public static void onPhaseAFastPath() {
+        if (measurementStarted) {
+            phaseAFastPathSkips++;
+        }
+    }
+
+    public static void onPhaseARevisionScan() {
+        if (measurementStarted) {
+            phaseARevisionScans++;
+        }
+    }
+
     public static void onUpdateDuration(long nanos) {
         if (measurementStarted) {
             updateNanos += nanos;
@@ -224,12 +238,14 @@ public final class IrisUniformInstrumentation {
             perFrame(simulatedRequiredUploads, frames),
             perFrame(simulatedAvoidableUploads, frames),
             percent(simulatedAvoidableUploads, simulatedUploadChecks),
+            perFrame(phaseAFastPathSkips, frames),
+            perFrame(phaseARevisionScans, frames),
             nanosPerFrameAsMicros(updateNanos, frames),
             nanosPerFrameAsMicros(pushNanos, frames)
         );
 
         Argon.LOGGER.info(
-            "[Phase 0][Iris uniforms] generation={} frames={} uniforms={} programs={} eval/frame={} changed={}%, stable={}%, passPush/frame={}, actualUploads/frame={}, simulatedRequired/frame={}, simulatedAvoidable/frame={}, simulatedSkip={}%, instrumentedUpdateUs/frame={}, instrumentedPushUs/frame={}",
+            "[Phase 0][Iris uniforms] generation={} frames={} uniforms={} programs={} eval/frame={} changed={}%, stable={}%, passPush/frame={}, actualUploads/frame={}, simulatedRequired/frame={}, simulatedAvoidable/frame={}, simulatedSkip={}%, phaseAFastSkip/frame={}, phaseAScan/frame={}, instrumentedUpdateUs/frame={}, instrumentedPushUs/frame={}",
             report.pipelineGeneration(),
             report.frames(),
             report.uniforms(),
@@ -242,6 +258,8 @@ public final class IrisUniformInstrumentation {
             report.simulatedRequiredPerFrame(),
             report.simulatedAvoidablePerFrame(),
             report.simulatedSkipPercent(),
+            report.phaseAFastPathSkipsPerFrame(),
+            report.phaseARevisionScansPerFrame(),
             report.instrumentedUpdateUsPerFrame(),
             report.instrumentedPushUsPerFrame()
         );
@@ -277,7 +295,8 @@ public final class IrisUniformInstrumentation {
                     "frames,uniforms,programs,evaluations_per_frame,changed_percent,stable_percent," +
                     "pass_pushes_per_frame,actual_upload_checks_per_frame,actual_uploads_per_frame," +
                     "simulated_upload_checks_per_frame,simulated_required_per_frame,simulated_avoidable_per_frame," +
-                    "simulated_skip_percent,instrumented_update_us_per_frame,instrumented_push_us_per_frame\n"
+                    "simulated_skip_percent,phase_a_fast_path_skips_per_frame,phase_a_revision_scans_per_frame," +
+                    "instrumented_update_us_per_frame,instrumented_push_us_per_frame\n"
                 );
             }
 
@@ -301,6 +320,8 @@ public final class IrisUniformInstrumentation {
                 .append(decimal(report.simulatedRequiredPerFrame())).append(',')
                 .append(decimal(report.simulatedAvoidablePerFrame())).append(',')
                 .append(decimal(report.simulatedSkipPercent())).append(',')
+                .append(decimal(report.phaseAFastPathSkipsPerFrame())).append(',')
+                .append(decimal(report.phaseARevisionScansPerFrame())).append(',')
                 .append(decimal(report.instrumentedUpdateUsPerFrame())).append(',')
                 .append(decimal(report.instrumentedPushUsPerFrame()))
                 .append('\n');
@@ -340,6 +361,8 @@ public final class IrisUniformInstrumentation {
         simulatedUploadChecks = 0L;
         simulatedRequiredUploads = 0L;
         simulatedAvoidableUploads = 0L;
+        phaseAFastPathSkips = 0L;
+        phaseARevisionScans = 0L;
         updateNanos = 0L;
         pushNanos = 0L;
     }
@@ -375,6 +398,8 @@ public final class IrisUniformInstrumentation {
         double simulatedRequiredPerFrame,
         double simulatedAvoidablePerFrame,
         double simulatedSkipPercent,
+        double phaseAFastPathSkipsPerFrame,
+        double phaseARevisionScansPerFrame,
         double instrumentedUpdateUsPerFrame,
         double instrumentedPushUsPerFrame
     ) {

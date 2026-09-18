@@ -43,6 +43,8 @@ function Write-Summary($InputRows, [string]$ModeLabel) {
     $SimulatedChecks = 0.0
     $SimulatedRequired = 0.0
     $SimulatedAvoidable = 0.0
+    $PhaseAFastPathSkips = 0.0
+    $PhaseARevisionScans = 0.0
     $WeightedUpdateUs = 0.0
     $WeightedPushUs = 0.0
 
@@ -65,6 +67,8 @@ function Write-Summary($InputRows, [string]$ModeLabel) {
         $SimulatedChecks += [double]$Row.simulated_upload_checks_per_frame * $Frames
         $SimulatedRequired += [double]$Row.simulated_required_per_frame * $Frames
         $SimulatedAvoidable += [double]$Row.simulated_avoidable_per_frame * $Frames
+        $PhaseAFastPathSkips += [double]$Row.phase_a_fast_path_skips_per_frame * $Frames
+        $PhaseARevisionScans += [double]$Row.phase_a_revision_scans_per_frame * $Frames
 
         $WeightedUpdateUs += [double]$Row.instrumented_update_us_per_frame * $Frames
         $WeightedPushUs += [double]$Row.instrumented_push_us_per_frame * $Frames
@@ -113,6 +117,8 @@ function Write-Summary($InputRows, [string]$ModeLabel) {
     Write-Output ("Simulated required/frame:       {0:N3}" -f (PerFrame $SimulatedRequired))
     Write-Output ("Simulated avoidable/frame:      {0:N3}" -f (PerFrame $SimulatedAvoidable))
     Write-Output ("Simulated skip ratio:           {0:N3}%" -f (Percent $SimulatedAvoidable $SimulatedChecks))
+    Write-Output ("Phase A fast skips/frame:       {0:N3}" -f (PerFrame $PhaseAFastPathSkips))
+    Write-Output ("Phase A revision scans/frame:   {0:N3}" -f (PerFrame $PhaseARevisionScans))
     Write-Output ""
     Write-Output ("Instrumented update us/frame:   {0:N3}" -f (PerFrame $WeightedUpdateUs))
     Write-Output ("Instrumented push us/frame:     {0:N3}" -f (PerFrame $WeightedPushUs))

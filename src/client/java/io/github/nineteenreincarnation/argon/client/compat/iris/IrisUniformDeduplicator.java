@@ -58,6 +58,8 @@ public final class IrisUniformDeduplicator {
 
         Reference2LongOpenHashMap<Object> uploaded = programState.uploadedRevisions();
 
+        IrisUniformInstrumentation.onPhaseARevisionScan();
+
         try {
             for (Object2IntMap.Entry<?> entry : uniforms.object2IntEntrySet()) {
                 Object uniform = entry.getKey();
