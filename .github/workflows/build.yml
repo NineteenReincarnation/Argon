@@ -93,6 +93,8 @@ jobs:
                   grep -Fxq "io/github/nineteenreincarnation/argon/Argon.class" build/argon-jar-contents.txt
                   grep -Fxq "io/github/nineteenreincarnation/argon/client/ArgonClient.class" build/argon-jar-contents.txt
                   grep -Fxq "io/github/nineteenreincarnation/argon/version/mc26_2/Argon26_2MixinPlugin.class" build/argon-jar-contents.txt
+                  grep -Fxq "io/github/nineteenreincarnation/argon/client/compat/iris/IrisUniformDeduplicator.class" build/argon-jar-contents.txt
+                  grep -Fxq "io/github/nineteenreincarnation/argon/client/compat/iris/IrisUniformDeduplicator\$UniformState.class" build/argon-jar-contents.txt
                   grep -Fxq "io/github/nineteenreincarnation/argon/mixin/mc26_2/iris/CustomUniformsMixin.class" build/argon-jar-contents.txt
 
             - name: Upload development JAR
@@ -193,3 +195,45 @@ jobs:
                   done
 
                   echo "Iris ${{ matrix.runtime }} matches the current Argon Phase 0 Mixin target surface."
+
+            - name: Verify Phase A primary behavior assumptions
+              if: matrix.runtime == '1.11.4+mc26.2'
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  JAR="build/compatibility/iris/iris-probe.jar"
+                  OUT="build/compatibility/iris/javap"
+                  mkdir -p "$OUT"
+
+                  javap -c -p -classpath "$JAR" net.irisshaders.iris.uniforms.custom.cached.CachedUniform > "$OUT/cached-uniform-bytecode.txt"
+                  javap -v -p -classpath "$JAR" net.irisshaders.iris.uniforms.custom.CustomUniforms > "$OUT/custom-uniforms-bytecode.txt"
+
+                  python - <<'PY'
+                  from pathlib import Path
+                  import re
+
+                  cached = Path("build/compatibility/iris/javap/cached-uniform-bytecode.txt").read_text()
+                  custom = Path("build/compatibility/iris/javap/custom-uniforms-bytecode.txt").read_text()
+
+                  update = re.search(
+                      r"public void update\(\);\s+Code:(.*?)(?=\n\s+(?:public|protected|private|static) )",
+                      cached,
+                      re.S,
+                  )
+
+                  if not update:
+                      raise SystemExit("Could not isolate CachedUniform.update() bytecode.")
+
+                  block = update.group(1)
+
+                  if "doUpdate:()Z" not in block:
+                      raise SystemExit("CachedUniform.update() no longer calls doUpdate().")
+
+                  if "Field changed:Z" not in block or "iconst_1" not in block:
+                      raise SystemExit("CachedUniform.update() no longer forces changed=true as expected.")
+
+                  if "pushIfChanged:(I)V" not in custom:
+                      raise SystemExit("CustomUniforms no longer references CachedUniform.pushIfChanged(int).")
+
+                  print("Iris 1.11.4 Phase A bytecode assumptions verified.")
+                  PY

@@ -200,3 +200,12 @@ Pipeline initialization through `CustomUniforms.optimise()` clears the per-progr
 This directly models the limitation documented in Iris 1.11.4's `CachedUniform.update()`: the cached uniform cannot safely clear the global `changed` flag because one uniform may still need to be uploaded to another program.
 
 Phase A does not mutate Iris' original `changed` field. When disabled, the original `CustomUniforms.push()` path runs unchanged.
+
+
+### Phase A hot-path implementation
+
+The active Phase A path stores program identities in a fastutil `Reference2ObjectOpenHashMap` and per-program uniform revisions in `Reference2LongOpenHashMap`.
+
+This preserves identity semantics while avoiding boxed `Long` values on every upload check.
+
+The implementation is fail-closed at runtime. If the expected Iris `Object2IntMap` or Argon-injected cached-uniform state is missing, Phase A disables itself for the remainder of the session, clears its state, logs the reason, and returns control to Iris' original `CustomUniforms.push()` path.
