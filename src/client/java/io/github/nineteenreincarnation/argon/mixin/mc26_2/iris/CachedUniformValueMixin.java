@@ -20,6 +20,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 abstract class CachedUniformValueMixin {
     @Inject(method = "doUpdate", at = @At("RETURN"), remap = false)
     private void argon$countValueChange(CallbackInfoReturnable<Boolean> cir) {
-        IrisUniformInstrumentation.onEvaluationResult(cir.getReturnValueZ());
+        IrisUniformInstrumentation.onEvaluationResult(this, cir.getReturnValueZ());
     }
 }
