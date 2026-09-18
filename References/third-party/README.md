@@ -11,6 +11,7 @@ They are reference material. They are **not Argon dependencies**, and their code
 | `ferritecore/` | FerriteCore 9.0.0 | `0cef1f2add1f1329aa6e690e8e292acd625c5c6d` | MIT |
 | `immediatelyfast/` | ImmediatelyFast 1.16.4 | `03d336242c8f965f9644f6700ee1e0c4c1657aa8` | LGPL-3.0 |
 | `entityculling/` | EntityCulling 1.10.5 | `c87c146dcad35102f07a24a67e71ae1e4f23b507` | tr7zw Protective License; read and test compatibility, do not merge code into Argon |
+| `iris/` | Iris 1.11.4 for 26.2 | `f61d950f556f3962d0e2e29c270bc1865572b35d` | LGPL-3.0; shader-loader/render-pipeline compatibility reference |
 
 ## Getting the source
 
@@ -26,7 +27,7 @@ For an existing clone:
 git submodule update --init --recursive
 ```
 
-The pinned commit is part of the Argon repository tree. Running a normal submodule update will therefore restore the exact source revision listed above.
+The pinned commit is part of the Argon repository tree. Running a normal submodule update restores the exact source revisions listed above.
 
 ## How these sources are used
 
@@ -38,6 +39,8 @@ Before implementing a patch:
 4. determine whether the upstream optimization already removes the bottleneck;
 5. determine whether Argon's patch is additive, redundant, or conflicting;
 6. record any compatibility gate needed by Argon.
+
+For client rendering work, inspect **Sodium and Iris together**. Iris 1.11.4 for 26.2 directly targets Sodium 0.9.2 in its 26.2 build configuration, so treating them as unrelated compatibility targets would miss the real render stack.
 
 Do not copy code simply because it is visible here. Check the upstream license and independently derive Argon's implementation.
 

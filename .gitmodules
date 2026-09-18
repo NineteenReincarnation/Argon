@@ -13,3 +13,6 @@
 [submodule "References/third-party/entityculling"]
 	path = References/third-party/entityculling
 	url = https://github.com/tr7zw/EntityCulling.git
+[submodule "References/third-party/iris"]
+	path = References/third-party/iris
+	url = https://github.com/IrisShaders/Iris.git

@@ -7,6 +7,7 @@ Argon targets **Minecraft 26.2 / Fabric** and is designed to coexist with the es
 | Project | 26.2 reference | Primary area | Upstream |
 | --- | --- | --- | --- |
 | Sodium | `mc26.2-0.9.2` | renderer, terrain rendering, rendering buffers, client rendering performance | https://github.com/CaffeineMC/sodium |
+| Iris | `1.11.4+mc26.2` source baseline | shader loading, shader render pipeline, Sodium integration | https://github.com/IrisShaders/Iris |
 | Lithium | `mc26.2-0.25.2` | game logic, entities, physics, ticking, world logic, shapes | https://github.com/CaffeineMC/lithium |
 | FerriteCore | `9.0.0-fabric` | retained memory and memory-oriented data/layout optimizations | https://github.com/malte0811/FerriteCore |
 | ImmediatelyFast | `1.16.4+26.2-fabric` | immediate-mode rendering, GUI and related client rendering hot paths | https://github.com/RaphiMC/ImmediatelyFast |
@@ -14,13 +15,26 @@ Argon targets **Minecraft 26.2 / Fabric** and is designed to coexist with the es
 
 These projects are compatibility and overlap references, not default Argon dependencies.
 
-A proposed Argon patch should answer which vanilla code it touches, whether an upstream mod already solves the bottleneck, whether the two transforms overlap, and whether Argon should disable the patch when that mod is present.
+A proposed Argon patch should answer which vanilla code it touches, whether an upstream mod already solves the bottleneck, whether the transforms overlap, and whether Argon should disable the patch when that mod is present.
 
 ## Initial ownership boundaries
 
 ### Sodium
 
 Treat Sodium as the primary owner of deep renderer replacement work. Be cautious around chunk/terrain renderer replacement, terrain buffers, render graph/culling internals, and backend-specific OpenGL/Vulkan paths.
+
+### Iris
+
+Treat Iris as the primary shader-loader/render-pipeline compatibility target.
+
+Before Argon changes rendering state, framebuffer lifetime, render passes, shader-visible data, vertex formats, or Sodium-facing render hooks, inspect Iris as well as Sodium.
+
+Argon rendering optimizations should be tested in at least these two states:
+
+- Sodium without shaders;
+- Sodium + Iris with the project's shader compatibility baseline enabled.
+
+See `SHADER_COMPATIBILITY.md`.
 
 ### Lithium
 
