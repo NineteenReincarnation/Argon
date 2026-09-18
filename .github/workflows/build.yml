@@ -44,6 +44,40 @@ jobs:
                   grep -Fq "maven.modrinth:sodium:mc26.2-0.9.2-fabric" build/dev-runtime-dependencies.txt
                   grep -Fq "maven.modrinth:iris:1.11.4+26.2-fabric" build/dev-runtime-dependencies.txt
 
+            - name: Verify PowerShell helper scripts
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = "Stop"
+
+                  foreach ($Path in @("scripts/run-phase0.ps1", "scripts/analyze-phase0.ps1")) {
+                      $Tokens = $null
+                      $Errors = $null
+                      [System.Management.Automation.Language.Parser]::ParseFile(
+                          $Path,
+                          [ref]$Tokens,
+                          [ref]$Errors
+                      ) | Out-Null
+
+                      if ($Errors.Count -gt 0) {
+                          $Errors | ForEach-Object { Write-Error $_.Message }
+                          throw "PowerShell syntax validation failed for $Path"
+                      }
+                  }
+
+                  New-Item -ItemType Directory -Force -Path build | Out-Null
+                  @'
+                  timestamp_utc,pipeline_generation,argon_version,minecraft_version,iris_version,sodium_version,frames,uniforms,programs,evaluations_per_frame,changed_percent,stable_percent,pass_pushes_per_frame,actual_upload_checks_per_frame,actual_uploads_per_frame,simulated_upload_checks_per_frame,simulated_required_per_frame,simulated_avoidable_per_frame,simulated_skip_percent,instrumented_update_us_per_frame,instrumented_push_us_per_frame
+                  "2026-09-18T00:00:00Z",1,"0.1.0-dev","26.2","1.11.4+mc26.2","0.9.2+mc26.2",100,30,12,30,20,80,10,40,40,40,10,30,75,25,50
+                  '@ | Set-Content -Path build/phase0-fixture.csv -Encoding UTF8
+
+                  .\scripts\analyze-phase0.ps1 -CsvPath build/phase0-fixture.csv |
+                      Tee-Object -FilePath build/phase0-analysis-fixture.txt
+
+                  $Output = Get-Content build/phase0-analysis-fixture.txt -Raw
+                  if (-not $Output.Contains("Simulated skip ratio:           75.000%")) {
+                      throw "Phase 0 analyzer fixture produced an unexpected skip ratio."
+                  }
+
             - name: Verify packaged JAR
               shell: bash
               run: |
