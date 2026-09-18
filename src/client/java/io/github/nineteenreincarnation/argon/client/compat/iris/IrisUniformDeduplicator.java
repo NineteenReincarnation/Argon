@@ -21,7 +21,8 @@ public final class IrisUniformDeduplicator {
     private static final Reference2ObjectOpenHashMap<Object, ProgramState> PROGRAMS =
         new Reference2ObjectOpenHashMap<>();
 
-    private static final ObjectArrayList<Object> CHANGED_THIS_UPDATE = new ObjectArrayList<>();
+    private static final ObjectArrayList<Object> CHANGED_THIS_UPDATE =
+        new ObjectArrayList<>();
 
     private static boolean operational = true;
     private static boolean updateInProgress;
@@ -43,9 +44,9 @@ public final class IrisUniformDeduplicator {
             return;
         }
 
-        updateSequence++;
-        updateInProgress = true;
+        advanceUpdateSequence();
         CHANGED_THIS_UPDATE.clear();
+        updateInProgress = true;
     }
 
     public static void onUniformUpdateEnd() {
@@ -60,11 +61,12 @@ public final class IrisUniformDeduplicator {
         }
 
         if (!updateInProgress) {
-            // The audited Iris path updates these uniforms inside CustomUniforms.update().
-            // If that assumption changes at runtime, create a fresh update generation so
-            // already-synchronized programs cannot incorrectly take the same-update fast path.
-            updateSequence++;
+            // The audited Iris path updates custom uniforms from CustomUniforms.update().
+            // If a future Iris version mutates one outside that boundary, invalidate all
+            // program state rather than making a partial changed-set assumption.
+            PROGRAMS.clear();
             CHANGED_THIS_UPDATE.clear();
+            return;
         }
 
         CHANGED_THIS_UPDATE.add(uniform);
@@ -93,20 +95,21 @@ public final class IrisUniformDeduplicator {
 
         ProgramState program = PROGRAMS.get(pass);
 
-        if (program != null && program.syncedUpdate == updateSequence) {
-            IrisUniformInstrumentation.onPhaseAFastPath();
-            return true;
-        }
-
-        if (program == null) {
-            program = new ProgramState();
+        if (program == null || program.locationMapIdentity != mappedUniforms) {
+            program = new ProgramState(mappedUniforms);
             PROGRAMS.put(pass, program);
             fullScan(program, uniforms);
-        } else if (
-            program.syncedUpdate == updateSequence - 1L
-                && CHANGED_THIS_UPDATE.size() < uniforms.size()
-        ) {
-            incrementalScan(program, uniforms);
+        } else if (program.syncedUpdate == updateSequence) {
+            IrisUniformInstrumentation.onPhaseAFastPath();
+            return true;
+        } else if (program.syncedUpdate == updateSequence - 1L) {
+            if (CHANGED_THIS_UPDATE.isEmpty()) {
+                IrisUniformInstrumentation.onPhaseAFastPath();
+            } else if (CHANGED_THIS_UPDATE.size() < uniforms.size()) {
+                incrementalScan(program, uniforms);
+            } else {
+                fullScan(program, uniforms);
+            }
         } else {
             fullScan(program, uniforms);
         }
@@ -130,15 +133,13 @@ public final class IrisUniformDeduplicator {
 
                 UniformState state = (UniformState) uniform;
                 long revision = state.argon$revision();
-                long uploadedRevision = program.revisions.getLong(uniform);
-                boolean required = uploadedRevision == MISSING_REVISION || uploadedRevision != revision;
 
-                IrisUniformInstrumentation.onUploadCheck(required);
-
-                if (required) {
-                    state.argon$push(uniforms.getInt(uniform));
-                    program.revisions.put(uniform, revision);
-                }
+                // The program was synchronized in the immediately previous update.
+                // Every uniform in CHANGED_THIS_UPDATE therefore requires an upload
+                // when this program maps that uniform.
+                IrisUniformInstrumentation.onUploadCheck(true);
+                state.argon$push(uniforms.getInt(uniform));
+                program.revisions.put(uniform, revision);
             }
         } catch (ClassCastException e) {
             disableForSession("An Iris cached uniform did not expose Argon's revision state.");
@@ -154,7 +155,8 @@ public final class IrisUniformDeduplicator {
                 UniformState state = (UniformState) uniform;
                 long revision = state.argon$revision();
                 long uploadedRevision = program.revisions.getLong(uniform);
-                boolean required = uploadedRevision == MISSING_REVISION || uploadedRevision != revision;
+                boolean required =
+                    uploadedRevision == MISSING_REVISION || uploadedRevision != revision;
 
                 IrisUniformInstrumentation.onUploadCheck(required);
 
@@ -168,6 +170,15 @@ public final class IrisUniformDeduplicator {
         }
     }
 
+    private static void advanceUpdateSequence() {
+        updateSequence++;
+
+        if (updateSequence == UNSYNCED_UPDATE) {
+            PROGRAMS.clear();
+            updateSequence = 0L;
+        }
+    }
+
     private static void disableForSession(String reason) {
         if (!operational) {
             return;
@@ -176,6 +187,8 @@ public final class IrisUniformDeduplicator {
         operational = false;
         PROGRAMS.clear();
         CHANGED_THIS_UPDATE.clear();
+        updateInProgress = false;
+        IrisUniformInstrumentation.onPhaseAFallback();
 
         Argon.LOGGER.error(
             "Disabling experimental Iris uniform deduplication for this session: {} Falling back to Iris' original upload path.",
@@ -184,10 +197,13 @@ public final class IrisUniformDeduplicator {
     }
 
     private static final class ProgramState {
-        private final Reference2LongOpenHashMap<Object> revisions = new Reference2LongOpenHashMap<>();
+        private final Object locationMapIdentity;
+        private final Reference2LongOpenHashMap<Object> revisions =
+            new Reference2LongOpenHashMap<>();
         private long syncedUpdate = UNSYNCED_UPDATE;
 
-        private ProgramState() {
+        private ProgramState(Object locationMapIdentity) {
+            this.locationMapIdentity = locationMapIdentity;
             revisions.defaultReturnValue(MISSING_REVISION);
         }
     }

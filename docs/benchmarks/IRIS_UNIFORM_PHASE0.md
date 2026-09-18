@@ -305,3 +305,16 @@ or use the repository helper:
 ```
 
 Compare against the same command without `-EnablePhaseA`.
+
+
+### Phase A three-tier push path
+
+The experimental deduplicator now uses one conservative hierarchy:
+
+1. **Fast skip** — the program is already synchronized in the current update sequence, or the immediately following update changed no custom uniforms.
+2. **Incremental changed-set push** — the program was synchronized in the previous update and fewer custom uniforms changed than the program maps.
+3. **Full revision scan** — first use, skipped update sequences, a remapped location map, or a changed set large enough that a full scan is cheaper.
+
+The changed-set path is only used when the program was synchronized in the immediately previous update. A program that was not rendered for one or more update sequences always falls back to a full revision scan.
+
+If a cached uniform reports a change outside the audited `CustomUniforms.update()` boundary, Argon invalidates all program synchronization state rather than trusting an incomplete changed set.
