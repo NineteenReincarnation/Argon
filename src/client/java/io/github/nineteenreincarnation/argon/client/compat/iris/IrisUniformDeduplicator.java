@@ -8,7 +8,6 @@ import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 
 public final class IrisUniformDeduplicator {
     private static final long MISSING_REVISION = Long.MIN_VALUE;
-    private static final long UNSYNCED_EPOCH = Long.MIN_VALUE;
 
     private static final boolean REQUESTED =
         Boolean.parseBoolean(System.getProperty("argon.experimental.irisUniformDedup", "false"));
@@ -17,11 +16,10 @@ public final class IrisUniformDeduplicator {
         CompatibilityBaseline26_2.isMinecraftTarget()
             && CompatibilityBaseline26_2.supportsIrisPhaseA();
 
-    private static final Reference2ObjectOpenHashMap<Object, ProgramState> PROGRAMS =
+    private static final Reference2ObjectOpenHashMap<Object, ProgramState> PROGRAM_STATES =
         new Reference2ObjectOpenHashMap<>();
 
     private static boolean operational = true;
-    private static long changeEpoch;
 
     private IrisUniformDeduplicator() {
     }
@@ -34,15 +32,8 @@ public final class IrisUniformDeduplicator {
         return REQUESTED && COMPATIBLE && operational;
     }
 
-    public static void onUniformChanged() {
-        if (isEnabled()) {
-            changeEpoch++;
-        }
-    }
-
     public static void onPipelineReset() {
-        PROGRAMS.clear();
-        changeEpoch = 0L;
+        PROGRAM_STATES.clear();
     }
 
     public static boolean tryPush(Object pass, Object mappedUniforms) {
@@ -59,30 +50,27 @@ public final class IrisUniformDeduplicator {
             return false;
         }
 
-        ProgramState program = PROGRAMS.get(pass);
-
-        if (program != null && program.syncedEpoch == changeEpoch) {
-            return true;
+        ProgramState programState = PROGRAM_STATES.get(pass);
+        if (programState == null || programState.locationMapIdentity() != mappedUniforms) {
+            programState = new ProgramState(mappedUniforms);
+            PROGRAM_STATES.put(pass, programState);
         }
 
-        if (program == null) {
-            program = new ProgramState();
-            PROGRAMS.put(pass, program);
-        }
+        Reference2LongOpenHashMap<Object> uploaded = programState.uploadedRevisions();
 
         try {
             for (Object2IntMap.Entry<?> entry : uniforms.object2IntEntrySet()) {
                 Object uniform = entry.getKey();
                 UniformState state = (UniformState) uniform;
                 long revision = state.argon$revision();
-                long uploadedRevision = program.revisions.getLong(uniform);
+                long uploadedRevision = uploaded.getLong(uniform);
                 boolean required = uploadedRevision == MISSING_REVISION || uploadedRevision != revision;
 
                 IrisUniformInstrumentation.onUploadCheck(required);
 
                 if (required) {
                     state.argon$push(entry.getIntValue());
-                    program.revisions.put(uniform, revision);
+                    uploaded.put(uniform, revision);
                 }
             }
         } catch (ClassCastException e) {
@@ -90,7 +78,6 @@ public final class IrisUniformDeduplicator {
             return false;
         }
 
-        program.syncedEpoch = changeEpoch;
         return true;
     }
 
@@ -100,7 +87,7 @@ public final class IrisUniformDeduplicator {
         }
 
         operational = false;
-        PROGRAMS.clear();
+        PROGRAM_STATES.clear();
 
         Argon.LOGGER.error(
             "Disabling experimental Iris uniform deduplication for this session: {} Falling back to Iris' original upload path.",
@@ -108,12 +95,13 @@ public final class IrisUniformDeduplicator {
         );
     }
 
-    private static final class ProgramState {
-        private final Reference2LongOpenHashMap<Object> revisions = new Reference2LongOpenHashMap<>();
-        private long syncedEpoch = UNSYNCED_EPOCH;
-
-        private ProgramState() {
-            revisions.defaultReturnValue(MISSING_REVISION);
+    private record ProgramState(
+        Object locationMapIdentity,
+        Reference2LongOpenHashMap<Object> uploadedRevisions
+    ) {
+        private ProgramState(Object locationMapIdentity) {
+            this(locationMapIdentity, new Reference2LongOpenHashMap<>());
+            uploadedRevisions.defaultReturnValue(MISSING_REVISION);
         }
     }
 

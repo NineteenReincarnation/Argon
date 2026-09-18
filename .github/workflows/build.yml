@@ -205,8 +205,7 @@ jobs:
 
                   echo "Iris ${{ matrix.runtime }} matches the current Argon Phase 0 Mixin target surface."
 
-            - name: Verify Phase A primary behavior assumptions
-              if: matrix.runtime == '1.11.4+mc26.2'
+            - name: Verify Phase A behavior assumptions
               shell: bash
               run: |
                   set -euo pipefail
@@ -244,5 +243,5 @@ jobs:
                   if "pushIfChanged:(I)V" not in custom:
                       raise SystemExit("CustomUniforms no longer references CachedUniform.pushIfChanged(int).")
 
-                  print("Iris 1.11.4 Phase A bytecode assumptions verified.")
+                  print("Iris Phase A bytecode assumptions verified.")
                   PY

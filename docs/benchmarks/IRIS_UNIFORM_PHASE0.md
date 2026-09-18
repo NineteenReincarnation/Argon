@@ -227,3 +227,12 @@ If a program is used again while its recorded epoch still equals the global epoc
 If the epoch differs, Argon falls back to the per-uniform revision comparison and then marks the program synchronized to the new epoch.
 
 The epoch is reset together with all per-program state when the custom-uniform pipeline is rebuilt.
+
+
+### Program remapping safety
+
+Phase A does not trust Java pass identity alone. Each pass state also remembers the exact Iris location-map object used for that pass.
+
+If Iris reuses a Java pass object but rebuilds/remaps its uniform locations, the location-map identity changes. Argon then discards that pass's uploaded-revision history and treats the next use as a first use, forcing the required uploads.
+
+CI now checks the Phase A `CachedUniform.update()` / `CustomUniforms.push()` bytecode assumptions for every published Iris 1.11.x Fabric build in the Minecraft 26.2 compatibility matrix, not only the primary 1.11.4 baseline.
