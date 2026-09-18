@@ -52,6 +52,11 @@ if (Test-Path $LatestLog) {
         $Lines | ForEach-Object { Write-Host $_ }
         Write-Host ""
         Write-Host "Saved summary to: $Summary"
+
+        $CsvPath = Join-Path $RepoRoot "run\argon\phase0-iris-uniforms.csv"
+        if (Test-Path $CsvPath) {
+            Write-Host "Structured Phase 0 CSV: $CsvPath"
+        }
     } else {
         Write-Warning "No Argon Phase 0 lines were found in latest.log."
     }

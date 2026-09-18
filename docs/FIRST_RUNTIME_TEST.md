@@ -85,3 +85,14 @@ For each capture, keep:
 - the extracted Phase 0 summary lines.
 
 The first runtime test is primarily for correctness and instrumentation validity. FPS gains are **not** expected yet because Phase 0 does not implement the optimization.
+
+
+## Structured result file
+
+During the run, Argon also appends interval data to:
+
+```text
+run/argon/phase0-iris-uniforms.csv
+```
+
+Keep this CSV together with `run/argon-phase0-summary.txt`. The CSV is the preferred input for later comparison/analysis; the text summary is mainly for quick inspection.

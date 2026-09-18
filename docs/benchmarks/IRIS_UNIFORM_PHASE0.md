@@ -155,3 +155,24 @@ Proceed only when in-game captures show a repeatable combination of:
 - no indication that the simulated revision model misses required state transitions.
 
 Raw benchmark captures do not need to live in Git. Representative results and reproduction settings should be committed.
+
+
+## Machine-readable output
+
+Each completed measurement interval is appended to:
+
+```text
+<game directory>/argon/phase0-iris-uniforms.csv
+```
+
+For the Loom development client this is normally:
+
+```text
+run/argon/phase0-iris-uniforms.csv
+```
+
+The CSV includes the pipeline generation, installed Argon/Minecraft/Iris/Sodium versions, frame count, uniform/program counts, actual and simulated upload rates, skip ratio, and instrumented update/push timing.
+
+A pipeline/shader rebuild increments `pipeline_generation`, so measurements before and after a reload can be separated without guessing from timestamps.
+
+CSV write failures never stop rendering. Argon logs the error once and disables further CSV output for that session.

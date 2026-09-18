@@ -2,8 +2,16 @@ package io.github.nineteenreincarnation.argon.client.compat.iris;
 
 import io.github.nineteenreincarnation.argon.Argon;
 import io.github.nineteenreincarnation.argon.version.mc26_2.CompatibilityBaseline26_2;
+import net.fabricmc.loader.api.FabricLoader;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.time.Instant;
 import java.util.IdentityHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public final class IrisUniformInstrumentation {
@@ -21,13 +29,18 @@ public final class IrisUniformInstrumentation {
     private static final long WARMUP_NANOS =
         Math.max(0L, Long.getLong("argon.instrumentation.warmupSeconds", 5L)) * 1_000_000_000L;
 
+    private static final Path CSV_PATH =
+        FabricLoader.getInstance().getGameDir().resolve("argon").resolve("phase0-iris-uniforms.csv");
+
     private static final IdentityHashMap<Object, Long> UNIFORM_REVISIONS = new IdentityHashMap<>();
     private static final IdentityHashMap<Object, IdentityHashMap<Object, Long>> PROGRAM_REVISIONS =
         new IdentityHashMap<>();
 
     private static boolean measurementStarted;
+    private static boolean csvEnabled = true;
     private static long warmupUntilNanos;
     private static long intervalStartedNanos;
+    private static long pipelineGeneration;
 
     private static long completedFrames;
     private static long evaluations;
@@ -61,6 +74,7 @@ public final class IrisUniformInstrumentation {
             return;
         }
 
+        pipelineGeneration++;
         UNIFORM_REVISIONS.clear();
         PROGRAM_REVISIONS.clear();
         resetMeasurementCounters();
@@ -70,7 +84,8 @@ public final class IrisUniformInstrumentation {
         warmupUntilNanos = now + WARMUP_NANOS;
 
         Argon.LOGGER.info(
-            "[Phase 0][Iris uniforms] Pipeline state reset; warm-up={} second(s).",
+            "[Phase 0][Iris uniforms] Pipeline state reset; generation={}, warm-up={} second(s).",
+            pipelineGeneration,
             WARMUP_NANOS / 1_000_000_000L
         );
     }
@@ -94,8 +109,10 @@ public final class IrisUniformInstrumentation {
             measurementStarted = true;
             intervalStartedNanos = now;
             Argon.LOGGER.info(
-                "[Phase 0][Iris uniforms] Warm-up complete; reporting every {} second(s).",
-                REPORT_INTERVAL_NANOS / 1_000_000_000L
+                "[Phase 0][Iris uniforms] Warm-up complete; generation={}, reporting every {} second(s), CSV={}.",
+                pipelineGeneration,
+                REPORT_INTERVAL_NANOS / 1_000_000_000L,
+                CSV_PATH
             );
             return;
         }
@@ -190,8 +207,9 @@ public final class IrisUniformInstrumentation {
     private static void reportAndReset(long now) {
         long frames = Math.max(1L, completedFrames);
 
-        Argon.LOGGER.info(
-            "[Phase 0][Iris uniforms] frames={} uniforms={} programs={} eval/frame={} changed={}%, stable={}%, passPush/frame={}, actualUploads/frame={}, simulatedRequired/frame={}, simulatedAvoidable/frame={}, simulatedSkip={}%, instrumentedUpdateUs/frame={}, instrumentedPushUs/frame={}",
+        Report report = new Report(
+            Instant.now().toString(),
+            pipelineGeneration,
             completedFrames,
             UNIFORM_REVISIONS.size(),
             PROGRAM_REVISIONS.size(),
@@ -199,12 +217,32 @@ public final class IrisUniformInstrumentation {
             percent(changedEvaluations, evaluations),
             100.0D - percent(changedEvaluations, evaluations),
             perFrame(passPushes, frames),
+            perFrame(uploadChecks, frames),
             perFrame(actualUploads, frames),
+            perFrame(simulatedUploadChecks, frames),
             perFrame(simulatedRequiredUploads, frames),
             perFrame(simulatedAvoidableUploads, frames),
             percent(simulatedAvoidableUploads, simulatedUploadChecks),
             nanosPerFrameAsMicros(updateNanos, frames),
             nanosPerFrameAsMicros(pushNanos, frames)
+        );
+
+        Argon.LOGGER.info(
+            "[Phase 0][Iris uniforms] generation={} frames={} uniforms={} programs={} eval/frame={} changed={}%, stable={}%, passPush/frame={}, actualUploads/frame={}, simulatedRequired/frame={}, simulatedAvoidable/frame={}, simulatedSkip={}%, instrumentedUpdateUs/frame={}, instrumentedPushUs/frame={}",
+            report.pipelineGeneration(),
+            report.frames(),
+            report.uniforms(),
+            report.programs(),
+            report.evaluationsPerFrame(),
+            report.changedPercent(),
+            report.stablePercent(),
+            report.passPushesPerFrame(),
+            report.actualUploadsPerFrame(),
+            report.simulatedRequiredPerFrame(),
+            report.simulatedAvoidablePerFrame(),
+            report.simulatedSkipPercent(),
+            report.instrumentedUpdateUsPerFrame(),
+            report.instrumentedPushUsPerFrame()
         );
 
         if (uploadChecks != simulatedUploadChecks) {
@@ -215,8 +253,79 @@ public final class IrisUniformInstrumentation {
             );
         }
 
+        appendCsv(report);
+
         resetMeasurementCounters();
         intervalStartedNanos = now;
+    }
+
+    private static void appendCsv(Report report) {
+        if (!csvEnabled) {
+            return;
+        }
+
+        try {
+            Files.createDirectories(CSV_PATH.getParent());
+
+            boolean writeHeader = Files.notExists(CSV_PATH) || Files.size(CSV_PATH) == 0L;
+            StringBuilder output = new StringBuilder();
+
+            if (writeHeader) {
+                output.append(
+                    "timestamp_utc,pipeline_generation,argon_version,minecraft_version,iris_version,sodium_version," +
+                    "frames,uniforms,programs,evaluations_per_frame,changed_percent,stable_percent," +
+                    "pass_pushes_per_frame,actual_upload_checks_per_frame,actual_uploads_per_frame," +
+                    "simulated_upload_checks_per_frame,simulated_required_per_frame,simulated_avoidable_per_frame," +
+                    "simulated_skip_percent,instrumented_update_us_per_frame,instrumented_push_us_per_frame\n"
+                );
+            }
+
+            output.append(csv(report.timestampUtc())).append(',')
+                .append(report.pipelineGeneration()).append(',')
+                .append(csv(CompatibilityBaseline26_2.installedVersion("argon").orElse("unknown"))).append(',')
+                .append(csv(CompatibilityBaseline26_2.installedVersion("minecraft").orElse("unknown"))).append(',')
+                .append(csv(CompatibilityBaseline26_2.installedVersion("iris").orElse("unknown"))).append(',')
+                .append(csv(CompatibilityBaseline26_2.installedVersion("sodium").orElse("unknown"))).append(',')
+                .append(report.frames()).append(',')
+                .append(report.uniforms()).append(',')
+                .append(report.programs()).append(',')
+                .append(decimal(report.evaluationsPerFrame())).append(',')
+                .append(decimal(report.changedPercent())).append(',')
+                .append(decimal(report.stablePercent())).append(',')
+                .append(decimal(report.passPushesPerFrame())).append(',')
+                .append(decimal(report.actualUploadChecksPerFrame())).append(',')
+                .append(decimal(report.actualUploadsPerFrame())).append(',')
+                .append(decimal(report.simulatedUploadChecksPerFrame())).append(',')
+                .append(decimal(report.simulatedRequiredPerFrame())).append(',')
+                .append(decimal(report.simulatedAvoidablePerFrame())).append(',')
+                .append(decimal(report.simulatedSkipPercent())).append(',')
+                .append(decimal(report.instrumentedUpdateUsPerFrame())).append(',')
+                .append(decimal(report.instrumentedPushUsPerFrame()))
+                .append('\n');
+
+            Files.writeString(
+                CSV_PATH,
+                output,
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.APPEND
+            );
+        } catch (IOException e) {
+            csvEnabled = false;
+            Argon.LOGGER.warn(
+                "[Phase 0][Iris uniforms] Failed to write CSV report to {}; CSV output disabled for this session.",
+                CSV_PATH,
+                e
+            );
+        }
+    }
+
+    private static String decimal(double value) {
+        return String.format(Locale.ROOT, "%.6f", value);
+    }
+
+    private static String csv(String value) {
+        return '"' + value.replace(""", """") + '"';
     }
 
     private static void resetMeasurementCounters() {
@@ -246,5 +355,26 @@ public final class IrisUniformInstrumentation {
             return 0.0D;
         }
         return ((double) numerator * 100.0D) / (double) denominator;
+    }
+
+    private record Report(
+        String timestampUtc,
+        long pipelineGeneration,
+        long frames,
+        int uniforms,
+        int programs,
+        double evaluationsPerFrame,
+        double changedPercent,
+        double stablePercent,
+        double passPushesPerFrame,
+        double actualUploadChecksPerFrame,
+        double actualUploadsPerFrame,
+        double simulatedUploadChecksPerFrame,
+        double simulatedRequiredPerFrame,
+        double simulatedAvoidablePerFrame,
+        double simulatedSkipPercent,
+        double instrumentedUpdateUsPerFrame,
+        double instrumentedPushUsPerFrame
+    ) {
     }
 }
