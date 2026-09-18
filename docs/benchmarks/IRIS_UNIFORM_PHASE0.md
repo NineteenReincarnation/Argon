@@ -176,3 +176,14 @@ The CSV includes the pipeline generation, installed Argon/Minecraft/Iris/Sodium 
 A pipeline/shader rebuild increments `pipeline_generation`, so measurements before and after a reload can be separated without guessing from timestamps.
 
 CSV write failures never stop rendering. Argon logs the error once and disables further CSV output for that session.
+
+
+## Local aggregation
+
+On Windows, aggregate all rows currently in the CSV with:
+
+```powershell
+.\scripts\analyze-phase0.ps1
+```
+
+The script uses frame-weighted aggregation and reconstructs total simulated upload checks/required/avoidable work from each interval. It does not apply an arbitrary go/no-go threshold.

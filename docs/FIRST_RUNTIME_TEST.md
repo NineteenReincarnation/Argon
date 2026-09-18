@@ -96,3 +96,14 @@ run/argon/phase0-iris-uniforms.csv
 ```
 
 Keep this CSV together with `run/argon-phase0-summary.txt`. The CSV is the preferred input for later comparison/analysis; the text summary is mainly for quick inspection.
+
+
+## Aggregate the CSV
+
+After one or more measurement windows:
+
+```powershell
+.\scripts\analyze-phase0.ps1
+```
+
+The analyzer weights interval metrics by frame count and reports aggregate upload and timing statistics. It deliberately does not decide whether Phase A should be implemented; that decision is made after reviewing the workload and data quality.
