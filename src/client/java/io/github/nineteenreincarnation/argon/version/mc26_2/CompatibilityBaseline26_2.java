@@ -20,7 +20,7 @@ public final class CompatibilityBaseline26_2 {
         Set.copyOf(IRIS_PHASE0_STRUCTURE_VERIFIED);
 
     public static final Set<String> IRIS_PHASE_B_STRUCTURE_VERIFIED =
-        Set.of(IRIS_PRIMARY);
+        Set.copyOf(IRIS_PHASE0_STRUCTURE_VERIFIED);
 
     public static final String SODIUM_PRIMARY = "0.9.2+mc26.2";
     public static final String SPOOKLEMENTARY_PRIMARY = "2.0.4";

@@ -57,3 +57,10 @@ A successful compile/package/structure audit is never treated as evidence of run
 The default-off Phase A uniform deduplication switch may be explicitly enabled on Iris 1.11.0, 1.11.1, 1.11.2, or 1.11.4 for Minecraft 26.2 because all four pass the current structural and bytecode behavior audits.
 
 This does not promote any of them to runtime-verified status.
+
+
+### Experimental Phase B compatibility
+
+Iris 1.11.0, 1.11.1, 1.11.2, and 1.11.4 for Minecraft 26.2 all pass the current expression-analysis surface audit. The default-off Phase B evaluation-cache experiment is structurally eligible on those versions.
+
+No version is runtime/visual/performance verified for Phase B yet.

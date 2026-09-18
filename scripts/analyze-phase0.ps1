@@ -46,6 +46,8 @@ function Write-Summary($InputRows, [string]$ModeLabel) {
     $PhaseAFastPathSkips = 0.0
     $PhaseAIncrementalScans = 0.0
     $PhaseAFullScans = 0.0
+    $PhaseBEvaluationSkips = 0.0
+    $PhaseBCandidateEvaluations = 0.0
     $WeightedUpdateUs = 0.0
     $WeightedPushUs = 0.0
 
@@ -71,6 +73,8 @@ function Write-Summary($InputRows, [string]$ModeLabel) {
         $PhaseAFastPathSkips += [double]$Row.phase_a_fast_path_skips_per_frame * $Frames
         $PhaseAIncrementalScans += [double]$Row.phase_a_incremental_scans_per_frame * $Frames
         $PhaseAFullScans += [double]$Row.phase_a_full_scans_per_frame * $Frames
+        $PhaseBEvaluationSkips += [double]$Row.phase_b_evaluation_skips_per_frame * $Frames
+        $PhaseBCandidateEvaluations += [double]$Row.phase_b_candidate_evaluations_per_frame * $Frames
 
         $WeightedUpdateUs += [double]$Row.instrumented_update_us_per_frame * $Frames
         $WeightedPushUs += [double]$Row.instrumented_push_us_per_frame * $Frames
@@ -122,6 +126,9 @@ function Write-Summary($InputRows, [string]$ModeLabel) {
     Write-Output ("Phase A fast skips/frame:       {0:N3}" -f (PerFrame $PhaseAFastPathSkips))
     Write-Output ("Phase A incremental/frame:      {0:N3}" -f (PerFrame $PhaseAIncrementalScans))
     Write-Output ("Phase A full scans/frame:       {0:N3}" -f (PerFrame $PhaseAFullScans))
+    Write-Output ("Phase B skips/frame:            {0:N3}" -f (PerFrame $PhaseBEvaluationSkips))
+    Write-Output ("Phase B candidate evals/frame:  {0:N3}" -f (PerFrame $PhaseBCandidateEvaluations))
+    Write-Output ("Phase B skip ratio:             {0:N3}%" -f (Percent $PhaseBEvaluationSkips ($PhaseBEvaluationSkips + $PhaseBCandidateEvaluations)))
     Write-Output ""
     Write-Output ("Instrumented update us/frame:   {0:N3}" -f (PerFrame $WeightedUpdateUs))
     Write-Output ("Instrumented push us/frame:     {0:N3}" -f (PerFrame $WeightedPushUs))

@@ -54,6 +54,8 @@ public final class IrisUniformInstrumentation {
     private static long phaseAFastPathSkips;
     private static long phaseAIncrementalScans;
     private static long phaseAFullScans;
+    private static long phaseBEvaluationSkips;
+    private static long phaseBCandidateEvaluations;
     private static long updateNanos;
     private static long pushNanos;
 
@@ -219,6 +221,18 @@ public final class IrisUniformInstrumentation {
         }
     }
 
+    public static void onPhaseBEvaluationSkip() {
+        if (measurementStarted) {
+            phaseBEvaluationSkips++;
+        }
+    }
+
+    public static void onPhaseBCandidateEvaluation() {
+        if (measurementStarted) {
+            phaseBCandidateEvaluations++;
+        }
+    }
+
     public static void onUpdateDuration(long nanos) {
         if (measurementStarted) {
             updateNanos += nanos;
@@ -253,12 +267,14 @@ public final class IrisUniformInstrumentation {
             perFrame(phaseAFastPathSkips, frames),
             perFrame(phaseAIncrementalScans, frames),
             perFrame(phaseAFullScans, frames),
+            perFrame(phaseBEvaluationSkips, frames),
+            perFrame(phaseBCandidateEvaluations, frames),
             nanosPerFrameAsMicros(updateNanos, frames),
             nanosPerFrameAsMicros(pushNanos, frames)
         );
 
         Argon.LOGGER.info(
-            "[Phase 0][Iris uniforms] generation={} frames={} uniforms={} programs={} eval/frame={} changed={}%, stable={}%, passPush/frame={}, actualUploads/frame={}, simulatedRequired/frame={}, simulatedAvoidable/frame={}, simulatedSkip={}%, phaseAFastSkip/frame={}, phaseAIncremental/frame={}, phaseAFullScan/frame={}, instrumentedUpdateUs/frame={}, instrumentedPushUs/frame={}",
+            "[Phase 0][Iris uniforms] generation={} frames={} uniforms={} programs={} eval/frame={} changed={}%, stable={}%, passPush/frame={}, actualUploads/frame={}, simulatedRequired/frame={}, simulatedAvoidable/frame={}, simulatedSkip={}%, phaseAFastSkip/frame={}, phaseAIncremental/frame={}, phaseAFullScan/frame={}, phaseBSkip/frame={}, phaseBEval/frame={}, instrumentedUpdateUs/frame={}, instrumentedPushUs/frame={}",
             report.pipelineGeneration(),
             report.frames(),
             report.uniforms(),
@@ -274,6 +290,8 @@ public final class IrisUniformInstrumentation {
             report.phaseAFastPathSkipsPerFrame(),
             report.phaseAIncrementalScansPerFrame(),
             report.phaseAFullScansPerFrame(),
+            report.phaseBEvaluationSkipsPerFrame(),
+            report.phaseBCandidateEvaluationsPerFrame(),
             report.instrumentedUpdateUsPerFrame(),
             report.instrumentedPushUsPerFrame()
         );
@@ -318,6 +336,7 @@ public final class IrisUniformInstrumentation {
                     "pass_pushes_per_frame,actual_upload_checks_per_frame,actual_uploads_per_frame," +
                     "simulated_upload_checks_per_frame,simulated_required_per_frame,simulated_avoidable_per_frame," +
                     "simulated_skip_percent,phase_a_fast_path_skips_per_frame,phase_a_incremental_scans_per_frame,phase_a_full_scans_per_frame," +
+                    "phase_b_evaluation_skips_per_frame,phase_b_candidate_evaluations_per_frame," +
                     "instrumented_update_us_per_frame,instrumented_push_us_per_frame\n"
                 );
             }
@@ -345,6 +364,8 @@ public final class IrisUniformInstrumentation {
                 .append(decimal(report.phaseAFastPathSkipsPerFrame())).append(',')
                 .append(decimal(report.phaseAIncrementalScansPerFrame())).append(',')
                 .append(decimal(report.phaseAFullScansPerFrame())).append(',')
+                .append(decimal(report.phaseBEvaluationSkipsPerFrame())).append(',')
+                .append(decimal(report.phaseBCandidateEvaluationsPerFrame())).append(',')
                 .append(decimal(report.instrumentedUpdateUsPerFrame())).append(',')
                 .append(decimal(report.instrumentedPushUsPerFrame()))
                 .append('\n');
@@ -400,6 +421,8 @@ public final class IrisUniformInstrumentation {
         phaseAFastPathSkips = 0L;
         phaseAIncrementalScans = 0L;
         phaseAFullScans = 0L;
+        phaseBEvaluationSkips = 0L;
+        phaseBCandidateEvaluations = 0L;
         updateNanos = 0L;
         pushNanos = 0L;
     }
@@ -447,6 +470,8 @@ public final class IrisUniformInstrumentation {
         double phaseAFastPathSkipsPerFrame,
         double phaseAIncrementalScansPerFrame,
         double phaseAFullScansPerFrame,
+        double phaseBEvaluationSkipsPerFrame,
+        double phaseBCandidateEvaluationsPerFrame,
         double instrumentedUpdateUsPerFrame,
         double instrumentedPushUsPerFrame
     ) {

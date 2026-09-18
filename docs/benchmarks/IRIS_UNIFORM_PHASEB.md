@@ -51,7 +51,7 @@ Phase B does not alter expression ASTs or shader-pack source.
 
 The code is compile/package validated only.
 
-Iris 1.11.4 is initially the only Phase B runtime gate. CI audits the expression-analysis surface on all published Iris 1.11.x builds for Minecraft 26.2; the gate can be widened only after those checks pass and the implementation is reviewed.
+CI audits the expression-analysis surface on all published Iris 1.11.x builds for Minecraft 26.2. Iris 1.11.0, 1.11.1, 1.11.2, and 1.11.4 currently pass that audit and are eligible for the explicit, default-off Phase B experiment.
 
 No runtime, visual, or performance claim is made yet.
 
@@ -72,3 +72,15 @@ Phase A and Phase B can be enabled together for experimental testing:
 ```powershell
 .\scripts\run-phase0.ps1 -EnablePhaseA -EnablePhaseB
 ```
+
+
+## Diagnostics
+
+With detailed instrumentation enabled, Phase 0 reports:
+
+```text
+phaseBSkip/frame
+phaseBEval/frame
+```
+
+and the CSV stores the same values. The local analyzer reports the frame-weighted Phase B candidate skip ratio.

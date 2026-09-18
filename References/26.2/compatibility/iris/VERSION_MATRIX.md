@@ -82,3 +82,10 @@ CI now validates the behavior assumptions required by the experimental upload-de
 All four published Iris 1.11.x Fabric builds for Minecraft 26.2 currently pass those checks.
 
 Therefore the **explicit, default-off Phase A experiment** is structurally eligible on all four versions. Runtime, visual, and performance validation remain separate and are still pending.
+
+
+## Phase B expression-analysis gate
+
+All four published Iris 1.11.x Fabric builds for Minecraft 26.2 pass the current Stareval/CustomUniforms analysis-surface checks used by the experimental Phase B planner.
+
+The explicit Phase B experiment is therefore structurally eligible on 1.11.0, 1.11.1, 1.11.2, and 1.11.4. Runtime/visual/performance validation is still pending.

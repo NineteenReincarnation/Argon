@@ -128,6 +128,7 @@ public final class IrisUniformEvaluationPlanner {
             }
         }
 
+        IrisUniformInstrumentation.onPhaseBEvaluationSkip();
         return true;
     }
 
@@ -158,6 +159,7 @@ public final class IrisUniformEvaluationPlanner {
         }
 
         state.initialized = true;
+        IrisUniformInstrumentation.onPhaseBCandidateEvaluation();
     }
 
     private static Classification classify(Object expression, ReflectionModel model)
