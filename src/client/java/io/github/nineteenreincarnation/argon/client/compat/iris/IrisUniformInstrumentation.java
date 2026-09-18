@@ -325,7 +325,7 @@ public final class IrisUniformInstrumentation {
     }
 
     private static String csv(String value) {
-        return '"' + value.replace(""", """") + '"';
+        return "\"" + value.replace("\"", "\"\"") + "\"";
     }
 
     private static void resetMeasurementCounters() {
