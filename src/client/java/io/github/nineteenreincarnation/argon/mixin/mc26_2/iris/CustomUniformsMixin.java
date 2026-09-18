@@ -32,6 +32,8 @@ abstract class CustomUniformsMixin {
 
     @Inject(method = "update", at = @At("HEAD"), remap = false)
     private void argon$beginUpdate(CallbackInfo ci) {
+        IrisUniformDeduplicator.onUniformUpdateStart();
+
         if (IrisUniformInstrumentation.isMeasuring()) {
             argon$updateStartedNanos = System.nanoTime();
         }
@@ -39,6 +41,8 @@ abstract class CustomUniformsMixin {
 
     @Inject(method = "update", at = @At("RETURN"), remap = false)
     private void argon$endUpdate(CallbackInfo ci) {
+        IrisUniformDeduplicator.onUniformUpdateEnd();
+
         if (IrisUniformInstrumentation.isMeasuring()) {
             IrisUniformInstrumentation.onUpdateDuration(System.nanoTime() - argon$updateStartedNanos);
         }

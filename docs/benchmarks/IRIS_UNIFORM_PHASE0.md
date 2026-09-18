@@ -268,3 +268,21 @@ The current implementation combines both safety and fast-path state:
 - a first use or remap always enters the revision scan and uploads every required uniform.
 
 The epoch is an optimization only. Per-uniform revisions remain the correctness mechanism.
+
+
+### Phase A changed-set incremental path
+
+The pinned Iris 1.11.4 source updates the custom-uniform order through `CustomUniforms.update()`, once on the audited new-frame path before render-pass pushes.
+
+Argon uses that boundary to retain a reusable list of uniforms whose `doUpdate()` actually changed during the current update sequence.
+
+For a program that was synchronized in the immediately preceding update sequence:
+
+- if the changed set is smaller than that program's mapped uniform set, Argon checks only the changed uniforms;
+- if the changed set is not smaller, Argon uses the full revision scan;
+- if the program missed one or more update sequences, Argon uses the full revision scan;
+- repeated pushes in the same update sequence use the O(1) synchronized-update fast path.
+
+This keeps the incremental path conservative when a program is not rendered every frame.
+
+Diagnostics distinguish `phaseAFastSkip/frame`, `phaseAIncremental/frame`, and `phaseAFullScan/frame`.

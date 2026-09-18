@@ -3,12 +3,13 @@ package io.github.nineteenreincarnation.argon.client.compat.iris;
 import io.github.nineteenreincarnation.argon.Argon;
 import io.github.nineteenreincarnation.argon.version.mc26_2.CompatibilityBaseline26_2;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 
 public final class IrisUniformDeduplicator {
     private static final long MISSING_REVISION = Long.MIN_VALUE;
-    private static final long UNSYNCED_EPOCH = Long.MIN_VALUE;
+    private static final long UNSYNCED_UPDATE = Long.MIN_VALUE;
 
     private static final boolean REQUESTED =
         Boolean.parseBoolean(System.getProperty("argon.experimental.irisUniformDedup", "false"));
@@ -17,11 +18,14 @@ public final class IrisUniformDeduplicator {
         CompatibilityBaseline26_2.isMinecraftTarget()
             && CompatibilityBaseline26_2.supportsIrisPhaseA();
 
-    private static final Reference2ObjectOpenHashMap<Object, ProgramState> PROGRAM_STATES =
+    private static final Reference2ObjectOpenHashMap<Object, ProgramState> PROGRAMS =
         new Reference2ObjectOpenHashMap<>();
 
+    private static final ObjectArrayList<Object> CHANGED_THIS_UPDATE = new ObjectArrayList<>();
+
     private static boolean operational = true;
-    private static long changeEpoch;
+    private static boolean updateInProgress;
+    private static long updateSequence;
 
     private IrisUniformDeduplicator() {
     }
@@ -34,22 +38,43 @@ public final class IrisUniformDeduplicator {
         return REQUESTED && COMPATIBLE && operational;
     }
 
-    public static void onUniformChanged() {
+    public static void onUniformUpdateStart() {
         if (!isEnabled()) {
             return;
         }
 
-        changeEpoch++;
+        updateSequence++;
+        updateInProgress = true;
+        CHANGED_THIS_UPDATE.clear();
+    }
 
-        if (changeEpoch == UNSYNCED_EPOCH) {
-            PROGRAM_STATES.clear();
-            changeEpoch = 0L;
+    public static void onUniformUpdateEnd() {
+        if (isEnabled()) {
+            updateInProgress = false;
         }
     }
 
+    public static void onUniformChanged(Object uniform) {
+        if (!isEnabled()) {
+            return;
+        }
+
+        if (!updateInProgress) {
+            // The audited Iris path updates these uniforms inside CustomUniforms.update().
+            // If that assumption changes at runtime, create a fresh update generation so
+            // already-synchronized programs cannot incorrectly take the same-update fast path.
+            updateSequence++;
+            CHANGED_THIS_UPDATE.clear();
+        }
+
+        CHANGED_THIS_UPDATE.add(uniform);
+    }
+
     public static void onPipelineReset() {
-        PROGRAM_STATES.clear();
-        changeEpoch = 0L;
+        PROGRAMS.clear();
+        CHANGED_THIS_UPDATE.clear();
+        updateSequence = 0L;
+        updateInProgress = false;
     }
 
     public static boolean tryPush(Object pass, Object mappedUniforms) {
@@ -66,40 +91,81 @@ public final class IrisUniformDeduplicator {
             return false;
         }
 
-        ProgramState program = PROGRAM_STATES.get(pass);
+        ProgramState program = PROGRAMS.get(pass);
 
-        if (program == null || program.locationMapIdentity != mappedUniforms) {
-            program = new ProgramState(mappedUniforms);
-            PROGRAM_STATES.put(pass, program);
-        } else if (program.syncedEpoch == changeEpoch) {
+        if (program != null && program.syncedUpdate == updateSequence) {
             IrisUniformInstrumentation.onPhaseAFastPath();
             return true;
         }
 
-        IrisUniformInstrumentation.onPhaseARevisionScan();
+        if (program == null) {
+            program = new ProgramState();
+            PROGRAMS.put(pass, program);
+            fullScan(program, uniforms);
+        } else if (
+            program.syncedUpdate == updateSequence - 1L
+                && CHANGED_THIS_UPDATE.size() < uniforms.size()
+        ) {
+            incrementalScan(program, uniforms);
+        } else {
+            fullScan(program, uniforms);
+        }
+
+        if (!isEnabled()) {
+            return false;
+        }
+
+        program.syncedUpdate = updateSequence;
+        return true;
+    }
+
+    private static void incrementalScan(ProgramState program, Object2IntMap<?> uniforms) {
+        IrisUniformInstrumentation.onPhaseAIncrementalScan();
+
+        try {
+            for (Object uniform : CHANGED_THIS_UPDATE) {
+                if (!uniforms.containsKey(uniform)) {
+                    continue;
+                }
+
+                UniformState state = (UniformState) uniform;
+                long revision = state.argon$revision();
+                long uploadedRevision = program.revisions.getLong(uniform);
+                boolean required = uploadedRevision == MISSING_REVISION || uploadedRevision != revision;
+
+                IrisUniformInstrumentation.onUploadCheck(required);
+
+                if (required) {
+                    state.argon$push(uniforms.getInt(uniform));
+                    program.revisions.put(uniform, revision);
+                }
+            }
+        } catch (ClassCastException e) {
+            disableForSession("An Iris cached uniform did not expose Argon's revision state.");
+        }
+    }
+
+    private static void fullScan(ProgramState program, Object2IntMap<?> uniforms) {
+        IrisUniformInstrumentation.onPhaseAFullScan();
 
         try {
             for (Object2IntMap.Entry<?> entry : uniforms.object2IntEntrySet()) {
                 Object uniform = entry.getKey();
                 UniformState state = (UniformState) uniform;
                 long revision = state.argon$revision();
-                long uploadedRevision = program.uploadedRevisions.getLong(uniform);
+                long uploadedRevision = program.revisions.getLong(uniform);
                 boolean required = uploadedRevision == MISSING_REVISION || uploadedRevision != revision;
 
                 IrisUniformInstrumentation.onUploadCheck(required);
 
                 if (required) {
                     state.argon$push(entry.getIntValue());
-                    program.uploadedRevisions.put(uniform, revision);
+                    program.revisions.put(uniform, revision);
                 }
             }
         } catch (ClassCastException e) {
             disableForSession("An Iris cached uniform did not expose Argon's revision state.");
-            return false;
         }
-
-        program.syncedEpoch = changeEpoch;
-        return true;
     }
 
     private static void disableForSession(String reason) {
@@ -108,8 +174,8 @@ public final class IrisUniformDeduplicator {
         }
 
         operational = false;
-        PROGRAM_STATES.clear();
-        IrisUniformInstrumentation.onPhaseAFallback();
+        PROGRAMS.clear();
+        CHANGED_THIS_UPDATE.clear();
 
         Argon.LOGGER.error(
             "Disabling experimental Iris uniform deduplication for this session: {} Falling back to Iris' original upload path.",
@@ -118,14 +184,11 @@ public final class IrisUniformDeduplicator {
     }
 
     private static final class ProgramState {
-        private final Object locationMapIdentity;
-        private final Reference2LongOpenHashMap<Object> uploadedRevisions =
-            new Reference2LongOpenHashMap<>();
-        private long syncedEpoch = UNSYNCED_EPOCH;
+        private final Reference2LongOpenHashMap<Object> revisions = new Reference2LongOpenHashMap<>();
+        private long syncedUpdate = UNSYNCED_UPDATE;
 
-        private ProgramState(Object locationMapIdentity) {
-            this.locationMapIdentity = locationMapIdentity;
-            uploadedRevisions.defaultReturnValue(MISSING_REVISION);
+        private ProgramState() {
+            revisions.defaultReturnValue(MISSING_REVISION);
         }
     }
 
