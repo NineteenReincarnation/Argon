@@ -49,6 +49,7 @@ dependencies {
     }
 
     if (shaderDevStackEnabled.get()) {
+        localRuntime "net.fabricmc.fabric-api:fabric-api:${project.dev_fabric_api_version}"
         localRuntime "maven.modrinth:sodium:${project.dev_sodium_version}"
         localRuntime "maven.modrinth:iris:${project.dev_iris_version}"
     }

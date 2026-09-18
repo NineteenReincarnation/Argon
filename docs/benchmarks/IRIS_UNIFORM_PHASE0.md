@@ -32,6 +32,8 @@ The pinned Iris 1.11.4 source confirms the assumptions behind Phase 0:
 - `CustomUniforms.optimise()` has one pipeline-initialization call site in the pinned source and is used as Argon's revision-state reset point.
 - the Iris 1.11.4 release runtime version is `1.11.4+mc26.2`.
 
+The cached-uniform audit also confirms that the four instrumented `doUpdate()` implementations cover the scalar types plus the shared vector/matrix path in the pinned source.
+
 These observations are source-level validation only. Runtime behavior still needs game testing.
 
 ## Purpose

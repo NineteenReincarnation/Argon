@@ -6,6 +6,7 @@ This document describes the reproducible development client used for the primary
 
 - Minecraft 26.2
 - Fabric Loader 0.19.5
+- Fabric API 0.160.0+26.2
 - Sodium 0.9.2
 - Iris 1.11.4
 - Spooklementary 2.0.4
@@ -43,7 +44,7 @@ Windows PowerShell:
 
 When this property is enabled, Gradle:
 
-1. adds the pinned Sodium and Iris release JARs to the local development runtime;
+1. adds the pinned Fabric API, Sodium, and Iris releases to the local development runtime;
 2. copies the pinned Spooklementary 2.0.4 source tree into the development instance's `run/shaderpacks/`;
 3. writes `run/config/iris.properties` selecting that shader pack and enabling shaders;
 4. starts the normal Loom development client with Argon loaded.
