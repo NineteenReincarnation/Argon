@@ -17,7 +17,7 @@ Target: Minecraft 26.2 / Fabric
 - Add a published-Iris structural compatibility matrix for Minecraft 26.2.
 - Enable Phase 0 instrumentation for structure-verified Iris 1.11.0, 1.11.1, 1.11.2, and 1.11.4.
 - Keep Iris 1.11.4 + Sodium 0.9.2 + Spooklementary 2.0.4 as the primary planned benchmark baseline.
-- Verify the packaged development JAR contains the expected 26.2 integration classes and resources.\n- Add a reproducible development runtime profile for Sodium 0.9.2 + Iris 1.11.4 + Spooklementary 2.0.4.\n- Add machine-readable CSV output for Phase 0 measurement intervals.\n- Implement experimental, default-off per-program Iris custom-uniform upload deduplication for the primary 1.11.4 baseline.\n- Use identity/primitive revision maps on the Phase A hot path and fall back to Iris automatically if runtime structural assumptions fail.
+- Verify the packaged development JAR contains the expected 26.2 integration classes and resources.\n- Add a reproducible development runtime profile for Sodium 0.9.2 + Iris 1.11.4 + Spooklementary 2.0.4.\n- Add machine-readable CSV output for Phase 0 measurement intervals.\n- Implement experimental, default-off per-program Iris custom-uniform upload deduplication for the primary 1.11.4 baseline.\n- Use identity/primitive revision maps on the Phase A hot path and fall back to Iris automatically if runtime structural assumptions fail.\n- Add a program-level change-epoch fast path that bypasses the entire uniform map when no custom uniform changed since that program's previous push.
 
 ### Validation
 

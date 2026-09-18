@@ -32,6 +32,7 @@ abstract class CachedUniformMixin implements IrisUniformDeduplicator.UniformStat
     @Unique
     public void argon$incrementRevision() {
         argon$revision++;
+        IrisUniformDeduplicator.onUniformChanged();
     }
 
     @Override

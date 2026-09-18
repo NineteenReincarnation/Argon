@@ -8,6 +8,7 @@ import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 
 public final class IrisUniformDeduplicator {
     private static final long MISSING_REVISION = Long.MIN_VALUE;
+    private static final long UNSYNCED_EPOCH = Long.MIN_VALUE;
 
     private static final boolean REQUESTED =
         Boolean.parseBoolean(System.getProperty("argon.experimental.irisUniformDedup", "false"));
@@ -16,10 +17,11 @@ public final class IrisUniformDeduplicator {
         CompatibilityBaseline26_2.isMinecraftTarget()
             && CompatibilityBaseline26_2.supportsIrisPhaseA();
 
-    private static final Reference2ObjectOpenHashMap<Object, Reference2LongOpenHashMap<Object>> PROGRAM_REVISIONS =
+    private static final Reference2ObjectOpenHashMap<Object, ProgramState> PROGRAMS =
         new Reference2ObjectOpenHashMap<>();
 
     private static boolean operational = true;
+    private static long changeEpoch;
 
     private IrisUniformDeduplicator() {
     }
@@ -32,8 +34,15 @@ public final class IrisUniformDeduplicator {
         return REQUESTED && COMPATIBLE && operational;
     }
 
+    public static void onUniformChanged() {
+        if (isEnabled()) {
+            changeEpoch++;
+        }
+    }
+
     public static void onPipelineReset() {
-        PROGRAM_REVISIONS.clear();
+        PROGRAMS.clear();
+        changeEpoch = 0L;
     }
 
     public static boolean tryPush(Object pass, Object mappedUniforms) {
@@ -50,11 +59,15 @@ public final class IrisUniformDeduplicator {
             return false;
         }
 
-        Reference2LongOpenHashMap<Object> uploaded = PROGRAM_REVISIONS.get(pass);
-        if (uploaded == null) {
-            uploaded = new Reference2LongOpenHashMap<>();
-            uploaded.defaultReturnValue(MISSING_REVISION);
-            PROGRAM_REVISIONS.put(pass, uploaded);
+        ProgramState program = PROGRAMS.get(pass);
+
+        if (program != null && program.syncedEpoch == changeEpoch) {
+            return true;
+        }
+
+        if (program == null) {
+            program = new ProgramState();
+            PROGRAMS.put(pass, program);
         }
 
         try {
@@ -62,14 +75,14 @@ public final class IrisUniformDeduplicator {
                 Object uniform = entry.getKey();
                 UniformState state = (UniformState) uniform;
                 long revision = state.argon$revision();
-                long uploadedRevision = uploaded.getLong(uniform);
+                long uploadedRevision = program.revisions.getLong(uniform);
                 boolean required = uploadedRevision == MISSING_REVISION || uploadedRevision != revision;
 
                 IrisUniformInstrumentation.onUploadCheck(required);
 
                 if (required) {
                     state.argon$push(entry.getIntValue());
-                    uploaded.put(uniform, revision);
+                    program.revisions.put(uniform, revision);
                 }
             }
         } catch (ClassCastException e) {
@@ -77,6 +90,7 @@ public final class IrisUniformDeduplicator {
             return false;
         }
 
+        program.syncedEpoch = changeEpoch;
         return true;
     }
 
@@ -86,12 +100,21 @@ public final class IrisUniformDeduplicator {
         }
 
         operational = false;
-        PROGRAM_REVISIONS.clear();
+        PROGRAMS.clear();
 
         Argon.LOGGER.error(
             "Disabling experimental Iris uniform deduplication for this session: {} Falling back to Iris' original upload path.",
             reason
         );
+    }
+
+    private static final class ProgramState {
+        private final Reference2LongOpenHashMap<Object> revisions = new Reference2LongOpenHashMap<>();
+        private long syncedEpoch = UNSYNCED_EPOCH;
+
+        private ProgramState() {
+            revisions.defaultReturnValue(MISSING_REVISION);
+        }
     }
 
     public interface UniformState {

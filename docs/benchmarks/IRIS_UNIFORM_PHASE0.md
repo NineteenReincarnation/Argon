@@ -214,3 +214,16 @@ The implementation is fail-closed at runtime. If the expected Iris `Object2IntMa
 The local analyzer groups rows by `phase_a_enabled`. Baseline and experimental upload counts are therefore never averaged into one number.
 
 The pinned Iris 1.11.4 pipeline calls `CustomUniforms.update()` once during the new-frame path before the normal render-pass pushes. This supports the Phase A revision model: one custom-uniform revision snapshot is shared by the program uploads that follow that frame update.
+
+
+### Phase A program-epoch fast path
+
+Phase A also maintains one global custom-uniform change epoch.
+
+Every real cached-uniform value change increments this epoch. Each shader program records the epoch observed after its last successful custom-uniform push.
+
+If a program is used again while its recorded epoch still equals the global epoch, no custom uniform can have changed since that program was synchronized. Argon therefore cancels the Iris custom-uniform push without iterating the program's uniform map.
+
+If the epoch differs, Argon falls back to the per-uniform revision comparison and then marks the program synchronized to the new epoch.
+
+The epoch is reset together with all per-program state when the custom-uniform pipeline is rebuilt.
