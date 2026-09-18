@@ -72,3 +72,14 @@ Runtime validation begins only after the client actually reaches the intended te
 The Phase 0 compatibility matrix currently structure-verifies Iris 1.11.0, 1.11.1, 1.11.2, and 1.11.4 for Minecraft 26.2.
 
 The automated development stack intentionally remains pinned to the **primary baseline** (1.11.4 + Sodium 0.9.2). Older Iris patches can be tested separately when runtime compatibility testing begins.
+
+
+## One-command Windows Phase 0 run
+
+For the first runtime validation, use:
+
+```powershell
+.\scripts\run-phase0.ps1
+```
+
+It launches the primary baseline and extracts Argon's relevant log lines after the client exits. See `docs/FIRST_RUNTIME_TEST.md`.
