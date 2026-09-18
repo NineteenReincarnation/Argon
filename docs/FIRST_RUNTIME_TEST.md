@@ -107,3 +107,30 @@ After one or more measurement windows:
 ```
 
 The analyzer weights interval metrics by frame count and reports aggregate upload and timing statistics. It deliberately does not decide whether Phase A should be implemented; that decision is made after reviewing the workload and data quality.
+
+
+## Experimental Phase A A/B run
+
+Phase A is implemented but remains disabled by default.
+
+Baseline:
+
+```powershell
+.\scripts\run-phase0.ps1
+```
+
+Experimental deduplication:
+
+```powershell
+.\scripts\run-phase0.ps1 -EnablePhaseA
+```
+
+The experimental switch maps to:
+
+```text
+-Dargon.experimental.irisUniformDedup=true
+```
+
+For now, Phase A activates only on the primary Minecraft 26.2 / Iris 1.11.4 runtime baseline. The older structure-verified Iris 1.11.x patches remain eligible for Phase 0 measurement but not for behavior-changing deduplication until runtime validation expands the Phase A compatibility set.
+
+The CSV records whether Phase A was active for each measurement row.

@@ -32,7 +32,7 @@ public final class IrisUniformInstrumentation {
     private static final Path CSV_PATH =
         FabricLoader.getInstance().getGameDir().resolve("argon").resolve("phase0-iris-uniforms.csv");
 
-    private static final IdentityHashMap<Object, Long> UNIFORM_REVISIONS = new IdentityHashMap<>();
+    private static final IdentityHashMap<Object, Boolean> SEEN_UNIFORMS = new IdentityHashMap<>();
     private static final IdentityHashMap<Object, IdentityHashMap<Object, Long>> PROGRAM_REVISIONS =
         new IdentityHashMap<>();
 
@@ -75,7 +75,7 @@ public final class IrisUniformInstrumentation {
         }
 
         pipelineGeneration++;
-        UNIFORM_REVISIONS.clear();
+        SEEN_UNIFORMS.clear();
         PROGRAM_REVISIONS.clear();
         resetMeasurementCounters();
 
@@ -135,13 +135,10 @@ public final class IrisUniformInstrumentation {
             return;
         }
 
-        if (changed) {
-            UNIFORM_REVISIONS.put(uniform, UNIFORM_REVISIONS.getOrDefault(uniform, 0L) + 1L);
-            if (measurementStarted) {
-                changedEvaluations++;
-            }
-        } else {
-            UNIFORM_REVISIONS.putIfAbsent(uniform, 0L);
+        SEEN_UNIFORMS.put(uniform, Boolean.TRUE);
+
+        if (changed && measurementStarted) {
+            changedEvaluations++;
         }
     }
 
@@ -162,9 +159,13 @@ public final class IrisUniformInstrumentation {
             PROGRAM_REVISIONS.computeIfAbsent(pass, ignored -> new IdentityHashMap<>());
 
         for (Object uniform : uniforms.keySet()) {
-            long revision = UNIFORM_REVISIONS.getOrDefault(uniform, 0L);
+            boolean revisionAvailable = uniform instanceof IrisUniformDeduplicator.UniformState;
+            long revision = revisionAvailable
+                ? ((IrisUniformDeduplicator.UniformState) uniform).argon$revision()
+                : 0L;
             Long uploadedRevision = uploaded.get(uniform);
-            boolean required = uploadedRevision == null || uploadedRevision.longValue() != revision;
+            boolean required =
+                !revisionAvailable || uploadedRevision == null || uploadedRevision.longValue() != revision;
 
             if (measurementStarted) {
                 simulatedUploadChecks++;
@@ -175,7 +176,7 @@ public final class IrisUniformInstrumentation {
                 }
             }
 
-            if (required) {
+            if (required && revisionAvailable) {
                 uploaded.put(uniform, revision);
             }
         }
@@ -211,7 +212,7 @@ public final class IrisUniformInstrumentation {
             Instant.now().toString(),
             pipelineGeneration,
             completedFrames,
-            UNIFORM_REVISIONS.size(),
+            SEEN_UNIFORMS.size(),
             PROGRAM_REVISIONS.size(),
             perFrame(evaluations, frames),
             percent(changedEvaluations, evaluations),
@@ -272,7 +273,7 @@ public final class IrisUniformInstrumentation {
 
             if (writeHeader) {
                 output.append(
-                    "timestamp_utc,pipeline_generation,argon_version,minecraft_version,iris_version,sodium_version," +
+                    "timestamp_utc,pipeline_generation,phase_a_enabled,argon_version,minecraft_version,iris_version,sodium_version," +
                     "frames,uniforms,programs,evaluations_per_frame,changed_percent,stable_percent," +
                     "pass_pushes_per_frame,actual_upload_checks_per_frame,actual_uploads_per_frame," +
                     "simulated_upload_checks_per_frame,simulated_required_per_frame,simulated_avoidable_per_frame," +
@@ -282,6 +283,7 @@ public final class IrisUniformInstrumentation {
 
             output.append(csv(report.timestampUtc())).append(',')
                 .append(report.pipelineGeneration()).append(',')
+                .append(IrisUniformDeduplicator.isEnabled()).append(',')
                 .append(csv(CompatibilityBaseline26_2.installedVersion("argon").orElse("unknown"))).append(',')
                 .append(csv(CompatibilityBaseline26_2.installedVersion("minecraft").orElse("unknown"))).append(',')
                 .append(csv(CompatibilityBaseline26_2.installedVersion("iris").orElse("unknown"))).append(',')

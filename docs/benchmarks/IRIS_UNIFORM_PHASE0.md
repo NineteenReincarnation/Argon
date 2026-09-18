@@ -187,3 +187,16 @@ On Windows, aggregate all rows currently in the CSV with:
 ```
 
 The script uses frame-weighted aggregation and reconstructs total simulated upload checks/required/avoidable work from each interval. It does not apply an arbitrary go/no-go threshold.
+
+
+## Phase A implementation status
+
+An experimental per-program revision deduplicator is now present in the development branch but is disabled by default.
+
+The revision belongs to each Iris `CachedUniform`. A revision increments only when Iris' own `doUpdate()` reports a value change. Each pass/program remembers the last revision it actually received. A missing program/uniform entry always uploads.
+
+Pipeline initialization through `CustomUniforms.optimise()` clears the per-program upload history.
+
+This directly models the limitation documented in Iris 1.11.4's `CachedUniform.update()`: the cached uniform cannot safely clear the global `changed` flag because one uniform may still need to be uploaded to another program.
+
+Phase A does not mutate Iris' original `changed` field. When disabled, the original `CustomUniforms.push()` path runs unchanged.

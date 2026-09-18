@@ -53,6 +53,10 @@ public final class CompatibilityBaseline26_2 {
         };
     }
 
+    public static boolean supportsIrisPhaseA() {
+        return irisCompatibility() == IrisCompatibility.PRIMARY_BASELINE;
+    }
+
     public static Optional<String> installedVersion(String modId) {
         return FabricLoader.getInstance()
             .getModContainer(modId)

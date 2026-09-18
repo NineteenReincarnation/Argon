@@ -1,3 +1,7 @@
+param(
+    [switch]$EnablePhaseA
+)
+
 $ErrorActionPreference = "Stop"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
@@ -23,7 +27,16 @@ Write-Host "Starting Argon Phase 0 development client..."
 Write-Host "Target: Minecraft 26.2 / Iris 1.11.4 / Sodium 0.9.2 / Spooklementary 2.0.4"
 Write-Host ""
 
-& .\gradlew.bat runClient -Pargon_dev_shader_stack=true
+$GradleArgs = @("runClient", "-Pargon_dev_shader_stack=true")
+
+if ($EnablePhaseA) {
+    $GradleArgs += "-Pargon_phase_a=true"
+    Write-Host "Experimental Phase A uniform upload deduplication: ENABLED"
+} else {
+    Write-Host "Experimental Phase A uniform upload deduplication: disabled"
+}
+
+& .\gradlew.bat @GradleArgs
 
 $GradleExit = $LASTEXITCODE
 $LatestLog = Join-Path $RepoRoot "run\logs\latest.log"

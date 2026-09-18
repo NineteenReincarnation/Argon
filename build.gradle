@@ -30,6 +30,14 @@ loom {
             sourceSet sourceSets.client
         }
     }
+
+    runs {
+        client {
+            if (phaseAEnabled.get()) {
+                vmArg "-Dargon.experimental.irisUniformDedup=true"
+            }
+        }
+    }
 }
 
 configurations {
@@ -37,6 +45,10 @@ configurations {
 }
 
 def shaderDevStackEnabled = providers.gradleProperty("argon_dev_shader_stack")
+    .map { it.toBoolean() }
+    .orElse(false)
+
+def phaseAEnabled = providers.gradleProperty("argon_phase_a")
     .map { it.toBoolean() }
     .orElse(false)
 
