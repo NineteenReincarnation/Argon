@@ -1,6 +1,7 @@
 package io.github.nineteenreincarnation.argon.mixin.mc26_2.iris;
 
 import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformDeduplicator;
+import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformEvaluationPlanner;
 import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformInstrumentation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -41,9 +42,19 @@ abstract class CachedUniformMixin implements IrisUniformDeduplicator.UniformStat
         push(location);
     }
 
-    @Inject(method = "update", at = @At("HEAD"), remap = false)
-    private void argon$countEvaluation(CallbackInfo ci) {
+    @Inject(method = "update", at = @At("HEAD"), cancellable = true, remap = false)
+    private void argon$beginUpdate(CallbackInfo ci) {
+        if (IrisUniformEvaluationPlanner.shouldSkip(this)) {
+            ci.cancel();
+            return;
+        }
+
         IrisUniformInstrumentation.onEvaluation();
+    }
+
+    @Inject(method = "update", at = @At("RETURN"), remap = false)
+    private void argon$afterUpdate(CallbackInfo ci) {
+        IrisUniformEvaluationPlanner.onEvaluated(this);
     }
 
     @Inject(method = "pushIfChanged", at = @At("HEAD"), remap = false)

@@ -3,6 +3,7 @@ package io.github.nineteenreincarnation.argon.client;
 import io.github.nineteenreincarnation.argon.Argon;
 import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformDeduplicator;
 import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformInstrumentation;
+import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformEvaluationPlanner;
 import io.github.nineteenreincarnation.argon.version.mc26_2.CompatibilityBaseline26_2;
 import net.fabricmc.api.ClientModInitializer;
 
@@ -31,6 +32,12 @@ public final class ArgonClient implements ClientModInitializer {
             "Iris uniform Phase A deduplication: requested={}, active={}.",
             IrisUniformDeduplicator.isRequested(),
             IrisUniformDeduplicator.isEnabled()
+        );
+
+        Argon.LOGGER.info(
+            "Iris uniform Phase B evaluation caching: requested={}, active={}.",
+            IrisUniformEvaluationPlanner.isRequested(),
+            IrisUniformEvaluationPlanner.isEnabled()
         );
     }
 }

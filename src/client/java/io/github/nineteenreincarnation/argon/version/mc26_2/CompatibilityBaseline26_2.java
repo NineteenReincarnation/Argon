@@ -19,6 +19,9 @@ public final class CompatibilityBaseline26_2 {
     public static final Set<String> IRIS_PHASE_A_STRUCTURE_VERIFIED =
         Set.copyOf(IRIS_PHASE0_STRUCTURE_VERIFIED);
 
+    public static final Set<String> IRIS_PHASE_B_STRUCTURE_VERIFIED =
+        Set.of(IRIS_PRIMARY);
+
     public static final String SODIUM_PRIMARY = "0.9.2+mc26.2";
     public static final String SPOOKLEMENTARY_PRIMARY = "2.0.4";
 
@@ -59,6 +62,12 @@ public final class CompatibilityBaseline26_2 {
     public static boolean supportsIrisPhaseA() {
         return installedVersion("iris")
             .map(IRIS_PHASE_A_STRUCTURE_VERIFIED::contains)
+            .orElse(false);
+    }
+
+    public static boolean supportsIrisPhaseB() {
+        return installedVersion("iris")
+            .map(IRIS_PHASE_B_STRUCTURE_VERIFIED::contains)
             .orElse(false);
     }
 

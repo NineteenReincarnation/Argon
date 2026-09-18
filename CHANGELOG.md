@@ -19,7 +19,7 @@ Target: Minecraft 26.2 / Fabric
 - Keep Iris 1.11.4 + Sodium 0.9.2 + Spooklementary 2.0.4 as the primary planned benchmark baseline.
 - Verify the packaged development JAR contains the expected 26.2 integration classes and resources.\n- Add a reproducible development runtime profile for Sodium 0.9.2 + Iris 1.11.4 + Spooklementary 2.0.4.\n- Add machine-readable CSV output for Phase 0 measurement intervals.\n- Implement experimental, default-off per-program Iris custom-uniform upload deduplication for the primary 1.11.4 baseline.\n- Use identity/primitive revision maps on the Phase A hot path and fall back to Iris automatically if runtime structural assumptions fail.\n- Combine program-remap invalidation with a global change-epoch fast path that can skip the entire uniform map when no custom uniform changed.\n- Add a program-level update-sequence fast path that bypasses repeated pushes in the same update cycle.\n- Add a changed-set incremental path so continuously used programs inspect only uniforms that actually changed in the current update when that is cheaper than a full scan.
 
-- Merge program-remap safety with a three-tier custom-uniform push path: O(1) fast skip, changed-set incremental push, and full revision fallback.\n\n### Validation
+- Merge program-remap safety with a three-tier custom-uniform push path: O(1) fast skip, changed-set incremental push, and full revision fallback.\n\n- Add an experimental, default-off Phase B dependency-revision evaluation cache for conservatively classified pure Iris custom expressions.\n\n### Validation
 
 - CI compile validation: complete.
 - CI package-content validation: complete.

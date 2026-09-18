@@ -2,6 +2,7 @@ param(
     [ValidateSet("1.11.0", "1.11.1", "1.11.2", "1.11.4")]
     [string]$IrisVersion = "1.11.4",
     [switch]$EnablePhaseA,
+    [switch]$EnablePhaseB,
     [switch]$PerformanceMode,
     [switch]$Jfr
 )
@@ -86,6 +87,13 @@ if ($EnablePhaseA) {
     Write-Host "Experimental Phase A uniform upload deduplication: disabled"
 }
 
+if ($EnablePhaseB) {
+    $GradleArgs += "-Pargon_phase_b=true"
+    Write-Host "Experimental Phase B uniform evaluation caching: ENABLED"
+} else {
+    Write-Host "Experimental Phase B uniform evaluation caching: disabled"
+}
+
 if ($PerformanceMode) {
     $GradleArgs += "-Pargon_instrumentation=false"
     Write-Host "Detailed Phase 0 instrumentation: disabled (performance mode)"
@@ -120,6 +128,8 @@ if (Test-Path $LatestLog) {
         "Argon client baseline:",
         "Iris uniform Phase 0 instrumentation:",
         "Iris uniform Phase A deduplication:",
+        "Iris uniform Phase B evaluation caching:",
+        "[Phase B][Iris uniforms]",
         "Enabling Minecraft 26.2 Iris Phase 0 integration",
         "[Phase 0][Iris uniforms]",
         "[Phase A][Iris uniforms]"

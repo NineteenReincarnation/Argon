@@ -1,6 +1,7 @@
 package io.github.nineteenreincarnation.argon.mixin.mc26_2.iris;
 
 import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformDeduplicator;
+import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformEvaluationPlanner;
 import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformInstrumentation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -10,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.List;
 import java.util.Map;
 
 @Pseudo
@@ -17,6 +19,18 @@ import java.util.Map;
 abstract class CustomUniformsMixin {
     @Shadow(remap = false)
     private Map<Object, ?> locationMap;
+
+    @Shadow(remap = false)
+    private Map<String, ?> variables;
+
+    @Shadow(remap = false)
+    private Map<String, ?> variablesExpressions;
+
+    @Shadow(remap = false)
+    private Map<?, ?> dependsOn;
+
+    @Shadow(remap = false)
+    private List<?> uniformOrder;
 
     @Unique
     private long argon$updateStartedNanos;
@@ -27,7 +41,18 @@ abstract class CustomUniformsMixin {
     @Inject(method = "optimise", at = @At("HEAD"), remap = false)
     private void argon$pipelineReady(CallbackInfo ci) {
         IrisUniformDeduplicator.onPipelineReset();
+        IrisUniformEvaluationPlanner.onPipelineReset();
         IrisUniformInstrumentation.onPipelineReset();
+    }
+
+    @Inject(method = "optimise", at = @At("RETURN"), remap = false)
+    private void argon$buildEvaluationPlan(CallbackInfo ci) {
+        IrisUniformEvaluationPlanner.buildPlan(
+            variables,
+            variablesExpressions,
+            dependsOn,
+            uniformOrder
+        );
     }
 
     @Inject(method = "update", at = @At("HEAD"), remap = false)

@@ -51,6 +51,7 @@ jobs:
                   ./gradlew runClient --dry-run \
                       -Pargon_dev_shader_stack=true \
                       -Pargon_phase_a=true \
+                      -Pargon_phase_b=true \
                       -Pargon_instrumentation=false \
                       -Pargon_jfr_file=argon/jfr/ci-probe.jfr
 
@@ -126,6 +127,7 @@ jobs:
                   grep -Fxq "io/github/nineteenreincarnation/argon/version/mc26_2/Argon26_2MixinPlugin.class" build/argon-jar-contents.txt
                   grep -Fxq "io/github/nineteenreincarnation/argon/client/compat/iris/IrisUniformDeduplicator.class" build/argon-jar-contents.txt
                   grep -Fxq "io/github/nineteenreincarnation/argon/client/compat/iris/IrisUniformDeduplicator\$UniformState.class" build/argon-jar-contents.txt
+                  grep -Fxq "io/github/nineteenreincarnation/argon/client/compat/iris/IrisUniformEvaluationPlanner.class" build/argon-jar-contents.txt
                   grep -Fxq "io/github/nineteenreincarnation/argon/mixin/mc26_2/iris/CustomUniformsMixin.class" build/argon-jar-contents.txt
 
             - name: Upload development JAR
@@ -267,3 +269,30 @@ jobs:
 
                   print("Iris Phase A bytecode assumptions verified.")
                   PY
+
+            - name: Verify Phase B expression-analysis surface
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  JAR="build/compatibility/iris/iris-probe.jar"
+                  OUT="build/compatibility/iris/javap"
+                  mkdir -p "$OUT"
+
+                  javap -private -classpath "$JAR" net.irisshaders.iris.uniforms.custom.CustomUniforms > "$OUT/custom-uniforms-phaseb.txt"
+                  javap -private -classpath "$JAR" kroppeb.stareval.expression.CallExpression > "$OUT/call-expression.txt"
+                  javap -private -classpath "$JAR" kroppeb.stareval.function.TypedFunction > "$OUT/typed-function.txt"
+                  javap -private -classpath "$JAR" kroppeb.stareval.function.FunctionResolver > "$OUT/function-resolver.txt"
+                  javap -private -classpath "$JAR" net.irisshaders.iris.parsing.IrisFunctions > "$OUT/iris-functions.txt"
+
+                  grep -Fq "variablesExpressions;" "$OUT/custom-uniforms-phaseb.txt"
+                  grep -Fq "dependsOn;" "$OUT/custom-uniforms-phaseb.txt"
+                  grep -Fq "uniformOrder;" "$OUT/custom-uniforms-phaseb.txt"
+
+                  grep -Fq "function;" "$OUT/call-expression.txt"
+                  grep -Fq "arguments;" "$OUT/call-expression.txt"
+                  grep -Fq "boolean isPure();" "$OUT/typed-function.txt"
+                  grep -Fq "functions;" "$OUT/function-resolver.txt"
+                  grep -Fq "functions;" "$OUT/iris-functions.txt"
+
+                  echo "Iris ${{ matrix.runtime }} matches the Phase B expression-analysis surface."
+
