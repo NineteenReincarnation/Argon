@@ -88,3 +88,8 @@ It launches the primary baseline and extracts Argon's relevant log lines after t
 ## JFR
 
 Add `-Jfr` to the Windows helper to start a Java Flight Recorder capture. For optimization A/B work, pair it with `-PerformanceMode` so the detailed Phase 0 simulator does not walk the uniform map during the performance capture.
+
+
+## Iris patch selector
+
+`scripts/run-phase0.ps1` accepts `-IrisVersion 1.11.0|1.11.1|1.11.2|1.11.4`. The script supplies the matching published Modrinth Iris/Sodium artifact pair to Gradle for that run. The repository defaults remain pinned to the 1.11.4 / 0.9.2 primary baseline.

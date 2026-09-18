@@ -201,3 +201,26 @@ run/argon/jfr/
 with timestamped `baseline-*.jfr` and `phase-a-*.jfr` names.
 
 Use the same world, camera path/settings, warm-up, and capture duration for the pair. JFR uses the JDK `profile` settings for both runs, so profiler overhead is at least held consistent between baseline and Phase A.
+
+
+## Select an Iris 26.2 patch
+
+The Windows helper can switch among the currently structure/behavior-verified Iris releases and automatically select the corresponding Sodium line:
+
+```powershell
+.\scripts\run-phase0.ps1 -IrisVersion 1.11.0
+.\scripts\run-phase0.ps1 -IrisVersion 1.11.1
+.\scripts\run-phase0.ps1 -IrisVersion 1.11.2
+.\scripts\run-phase0.ps1 -IrisVersion 1.11.4
+```
+
+Mappings:
+
+```text
+Iris 1.11.0 -> Sodium 0.9.0
+Iris 1.11.1 -> Sodium 0.9.0
+Iris 1.11.2 -> Sodium 0.9.1
+Iris 1.11.4 -> Sodium 0.9.2
+```
+
+The default remains Iris 1.11.4 + Sodium 0.9.2.

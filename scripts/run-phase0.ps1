@@ -1,4 +1,6 @@
 param(
+    [ValidateSet("1.11.0", "1.11.1", "1.11.2", "1.11.4")]
+    [string]$IrisVersion = "1.11.4",
     [switch]$EnablePhaseA,
     [switch]$PerformanceMode,
     [switch]$Jfr
@@ -8,6 +10,37 @@ $ErrorActionPreference = "Stop"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
+
+$VersionPair = switch ($IrisVersion) {
+    "1.11.0" {
+        @{
+            Iris = "1.11.0+26.2-fabric"
+            Sodium = "mc26.2-0.9.0-fabric"
+            SodiumDisplay = "0.9.0"
+        }
+    }
+    "1.11.1" {
+        @{
+            Iris = "1.11.1+26.2-fabric"
+            Sodium = "mc26.2-0.9.0-fabric"
+            SodiumDisplay = "0.9.0"
+        }
+    }
+    "1.11.2" {
+        @{
+            Iris = "1.11.2+26.2-fabric"
+            Sodium = "mc26.2-0.9.1-fabric"
+            SodiumDisplay = "0.9.1"
+        }
+    }
+    "1.11.4" {
+        @{
+            Iris = "1.11.4+26.2-fabric"
+            Sodium = "mc26.2-0.9.2-fabric"
+            SodiumDisplay = "0.9.2"
+        }
+    }
+}
 
 $ShaderPath = Join-Path $RepoRoot "References\26.2\third-party\spooklementary\shaders"
 
@@ -35,11 +68,16 @@ if (-not (Test-Path $ShaderPath)) {
 }
 
 Write-Host ""
-Write-Host "Starting Argon Phase 0 development client..."
-Write-Host "Target: Minecraft 26.2 / Iris 1.11.4 / Sodium 0.9.2 / Spooklementary 2.0.4"
+Write-Host "Starting Argon Iris development client..."
+Write-Host "Target: Minecraft 26.2 / Iris $IrisVersion / Sodium $($VersionPair.SodiumDisplay) / Spooklementary 2.0.4"
 Write-Host ""
 
-$GradleArgs = @("runClient", "-Pargon_dev_shader_stack=true")
+$GradleArgs = @(
+    "runClient",
+    "-Pargon_dev_shader_stack=true",
+    "-Pdev_iris_version=$($VersionPair.Iris)",
+    "-Pdev_sodium_version=$($VersionPair.Sodium)"
+)
 
 if ($EnablePhaseA) {
     $GradleArgs += "-Pargon_phase_a=true"
@@ -63,7 +101,7 @@ if ($Jfr) {
 
     $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $Mode = if ($EnablePhaseA) { "phase-a" } else { "baseline" }
-    $JfrName = "$Mode-$Stamp.jfr"
+    $JfrName = "$Mode-iris-$IrisVersion-$Stamp.jfr"
     $JfrRelativePath = "argon/jfr/$JfrName"
     $JfrAbsolutePath = Join-Path $JfrDir $JfrName
 
@@ -81,8 +119,10 @@ if (Test-Path $LatestLog) {
     $Patterns = @(
         "Argon client baseline:",
         "Iris uniform Phase 0 instrumentation:",
+        "Iris uniform Phase A deduplication:",
         "Enabling Minecraft 26.2 Iris Phase 0 integration",
-        "[Phase 0][Iris uniforms]"
+        "[Phase 0][Iris uniforms]",
+        "[Phase A][Iris uniforms]"
     )
 
     $Lines = Get-Content $LatestLog | Where-Object {
@@ -93,8 +133,8 @@ if (Test-Path $LatestLog) {
     $Lines | Set-Content -Path $Summary -Encoding UTF8
 
     Write-Host ""
-    Write-Host "Argon Phase 0 log summary:"
-    Write-Host "--------------------------"
+    Write-Host "Argon Iris log summary:"
+    Write-Host "-----------------------"
 
     if ($Lines.Count -gt 0) {
         $Lines | ForEach-Object { Write-Host $_ }
@@ -107,7 +147,7 @@ if (Test-Path $LatestLog) {
             Write-Host "No Phase 0 CSV expected: detailed instrumentation was disabled."
         }
     } else {
-        Write-Warning "No Argon Phase 0 lines were found in latest.log."
+        Write-Warning "No Argon Iris lines were found in latest.log."
     }
 } else {
     Write-Warning "Minecraft latest.log was not found at: $LatestLog"
