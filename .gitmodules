@@ -1,18 +1,21 @@
-[submodule "References/third-party/sodium"]
-	path = References/third-party/sodium
+[submodule "References/26.2/third-party/sodium"]
+	path = References/26.2/third-party/sodium
 	url = https://github.com/CaffeineMC/sodium.git
-[submodule "References/third-party/lithium"]
-	path = References/third-party/lithium
+[submodule "References/26.2/third-party/lithium"]
+	path = References/26.2/third-party/lithium
 	url = https://github.com/CaffeineMC/lithium.git
-[submodule "References/third-party/ferritecore"]
-	path = References/third-party/ferritecore
+[submodule "References/26.2/third-party/ferritecore"]
+	path = References/26.2/third-party/ferritecore
 	url = https://github.com/malte0811/FerriteCore.git
-[submodule "References/third-party/immediatelyfast"]
-	path = References/third-party/immediatelyfast
+[submodule "References/26.2/third-party/immediatelyfast"]
+	path = References/26.2/third-party/immediatelyfast
 	url = https://github.com/RaphiMC/ImmediatelyFast.git
-[submodule "References/third-party/entityculling"]
-	path = References/third-party/entityculling
+[submodule "References/26.2/third-party/entityculling"]
+	path = References/26.2/third-party/entityculling
 	url = https://github.com/tr7zw/EntityCulling.git
-[submodule "References/third-party/iris"]
-	path = References/third-party/iris
+[submodule "References/26.2/third-party/iris"]
+	path = References/26.2/third-party/iris
 	url = https://github.com/IrisShaders/Iris.git
+[submodule "References/26.2/third-party/spooklementary"]
+	path = References/26.2/third-party/spooklementary
+	url = https://github.com/SpacEagle17/Spooklementary.git
