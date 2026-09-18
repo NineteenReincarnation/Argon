@@ -134,3 +134,16 @@ The experimental switch maps to:
 For now, Phase A activates only on the primary Minecraft 26.2 / Iris 1.11.4 runtime baseline. The older structure-verified Iris 1.11.x patches remain eligible for Phase 0 measurement but not for behavior-changing deduplication until runtime validation expands the Phase A compatibility set.
 
 The CSV records whether Phase A was active for each measurement row.
+
+
+## Session isolation
+
+`run-phase0.ps1` archives an existing Phase 0 CSV before starting a new client session:
+
+```text
+run/argon/archive/phase0-iris-uniforms-YYYYMMDD-HHMMSS.csv
+```
+
+This prevents accidental aggregation across unrelated scenarios or old Argon builds.
+
+If one CSV intentionally contains both Phase A OFF and ON rows, `analyze-phase0.ps1` reports the two modes separately instead of mixing them.

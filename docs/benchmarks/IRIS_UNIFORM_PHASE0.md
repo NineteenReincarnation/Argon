@@ -209,3 +209,8 @@ The active Phase A path stores program identities in a fastutil `Reference2Objec
 This preserves identity semantics while avoiding boxed `Long` values on every upload check.
 
 The implementation is fail-closed at runtime. If the expected Iris `Object2IntMap` or Argon-injected cached-uniform state is missing, Phase A disables itself for the remainder of the session, clears its state, logs the reason, and returns control to Iris' original `CustomUniforms.push()` path.
+
+
+The local analyzer groups rows by `phase_a_enabled`. Baseline and experimental upload counts are therefore never averaged into one number.
+
+The pinned Iris 1.11.4 pipeline calls `CustomUniforms.update()` once during the new-frame path before the normal render-pass pushes. This supports the Phase A revision model: one custom-uniform revision snapshot is shared by the program uploads that follow that frame update.

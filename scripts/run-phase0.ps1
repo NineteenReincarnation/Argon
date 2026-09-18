@@ -9,6 +9,16 @@ Set-Location $RepoRoot
 
 $ShaderPath = Join-Path $RepoRoot "References\26.2\third-party\spooklementary\shaders"
 
+$CsvPath = Join-Path $RepoRoot "run\argon\phase0-iris-uniforms.csv"
+if (Test-Path $CsvPath) {
+    $ArchiveDir = Join-Path $RepoRoot "run\argon\archive"
+    New-Item -ItemType Directory -Force -Path $ArchiveDir | Out-Null
+    $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $ArchivedCsv = Join-Path $ArchiveDir "phase0-iris-uniforms-$Stamp.csv"
+    Move-Item -Path $CsvPath -Destination $ArchivedCsv
+    Write-Host "Archived previous Phase 0 CSV to: $ArchivedCsv"
+}
+
 if (-not (Test-Path $ShaderPath)) {
     Write-Host "Spooklementary reference is not initialized. Initializing Git submodules..."
     git submodule update --init --recursive
@@ -66,7 +76,6 @@ if (Test-Path $LatestLog) {
         Write-Host ""
         Write-Host "Saved summary to: $Summary"
 
-        $CsvPath = Join-Path $RepoRoot "run\argon\phase0-iris-uniforms.csv"
         if (Test-Path $CsvPath) {
             Write-Host "Structured Phase 0 CSV: $CsvPath"
         }
