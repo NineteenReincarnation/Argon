@@ -20,10 +20,13 @@ const REQUIRED_CLI_OPTIONS: &[&str] = &[
     "--session_name",
 ];
 
+const ETW_STATUS_CLI_OPTION: &str = "--track_etw_status";
+
 #[derive(Debug, Clone)]
 pub struct PresentMonBackend {
     pub path: PathBuf,
     pub version: Option<String>,
+    pub etw_status_tracking: bool,
 }
 
 pub struct PresentMonCapture {
@@ -33,6 +36,10 @@ pub struct PresentMonCapture {
     pub gpu_tracking_requested: bool,
     pub gpu_metrics_available: bool,
     pub display_metrics_available: bool,
+    pub etw_status_available: bool,
+    pub etw_events_lost: Option<u64>,
+    pub etw_buffers_lost: Option<u64>,
+    pub overflowed_presents: Option<u64>,
 }
 
 pub fn resolve_presentmon(explicit: Option<&Path>) -> Result<PresentMonBackend, String> {
@@ -85,6 +92,7 @@ fn inspect_presentmon(path: &Path) -> Result<PresentMonBackend, String> {
     Ok(PresentMonBackend {
         path: path.to_path_buf(),
         version: version_from_help(&help),
+        etw_status_tracking: help.contains(ETW_STATUS_CLI_OPTION),
     })
 }
 
@@ -142,6 +150,10 @@ pub fn capture(
         command.arg("--no_track_gpu");
     }
 
+    if backend.etw_status_tracking {
+        command.arg(ETW_STATUS_CLI_OPTION);
+    }
+
     let mut child = command
         .arg("--timed")
         .arg(&duration_arg)
@@ -168,6 +180,10 @@ pub fn capture(
         exit_code: status.code(),
         gpu_metrics_available: parsed.gpu_metrics_available,
         display_metrics_available: parsed.display_metrics_available,
+        etw_status_available: parsed.etw_status_available,
+        etw_events_lost: parsed.etw_events_lost,
+        etw_buffers_lost: parsed.etw_buffers_lost,
+        overflowed_presents: parsed.overflowed_presents,
     })
 }
 
@@ -176,6 +192,10 @@ struct ParsedCapture {
     rows_rejected: u64,
     gpu_metrics_available: bool,
     display_metrics_available: bool,
+    etw_status_available: bool,
+    etw_events_lost: Option<u64>,
+    etw_buffers_lost: Option<u64>,
+    overflowed_presents: Option<u64>,
 }
 
 fn parse_presentmon_csv<R: Read>(
@@ -188,10 +208,16 @@ fn parse_presentmon_csv<R: Read>(
     let headers = csv.headers()?.clone();
     let layout = Layout::from_headers(&headers)?;
     let display_metrics_available = layout.displayed_time.is_some();
+    let etw_status_available = layout.etw_events_lost.is_some()
+        && layout.etw_buffers_lost.is_some()
+        && layout.overflowed_presents.is_some();
 
     let mut accumulator =
         CaptureAccumulator::new(qpc_frequency_hz, ring_seconds, display_metrics_available);
     let mut rows_rejected = 0_u64;
+    let mut etw_events_lost = None;
+    let mut etw_buffers_lost = None;
+    let mut overflowed_presents = None;
 
     for row in csv.records() {
         let row = match row {
@@ -201,6 +227,11 @@ fn parse_presentmon_csv<R: Read>(
                 continue;
             }
         };
+
+        etw_events_lost = max_optional(etw_events_lost, parse_optional_u64(&row, layout.etw_events_lost));
+        etw_buffers_lost = max_optional(etw_buffers_lost, parse_optional_u64(&row, layout.etw_buffers_lost));
+        overflowed_presents =
+            max_optional(overflowed_presents, parse_optional_u64(&row, layout.overflowed_presents));
 
         match layout.parse_row(&row, expected_pid) {
             Ok(parsed) => accumulator.observe(
@@ -217,6 +248,10 @@ fn parse_presentmon_csv<R: Read>(
         rows_rejected,
         gpu_metrics_available: layout.gpu_time.is_some() || layout.gpu_busy.is_some(),
         display_metrics_available,
+        etw_status_available,
+        etw_events_lost,
+        etw_buffers_lost,
+        overflowed_presents,
     })
 }
 
@@ -238,6 +273,9 @@ struct Layout {
     displayed_time: Option<usize>,
     present_mode: Option<usize>,
     present_runtime: Option<usize>,
+    etw_events_lost: Option<usize>,
+    etw_buffers_lost: Option<usize>,
+    overflowed_presents: Option<usize>,
 }
 
 impl Layout {
@@ -254,6 +292,9 @@ impl Layout {
             displayed_time: optional_index(headers, "DisplayedTime"),
             present_mode: optional_index(headers, "PresentMode"),
             present_runtime: optional_index(headers, "PresentRuntime"),
+            etw_events_lost: optional_index(headers, "EtwEventsLost"),
+            etw_buffers_lost: optional_index(headers, "EtwBuffersLost"),
+            overflowed_presents: optional_index(headers, "OverflowedPresents"),
         })
     }
 
@@ -307,6 +348,21 @@ fn parse_required_ms(value: &str) -> Result<u64, String> {
 
 fn parse_optional_ms(row: &StringRecord, index: Option<usize>) -> Option<u64> {
     index.and_then(|index| row.get(index)).and_then(parse_ms)
+}
+
+fn parse_optional_u64(row: &StringRecord, index: Option<usize>) -> Option<u64> {
+    index
+        .and_then(|index| row.get(index))
+        .and_then(|value| value.parse::<u64>().ok())
+}
+
+fn max_optional(current: Option<u64>, next: Option<u64>) -> Option<u64> {
+    match (current, next) {
+        (Some(current), Some(next)) => Some(current.max(next)),
+        (Some(current), None) => Some(current),
+        (None, Some(next)) => Some(next),
+        (None, None) => None,
+    }
 }
 
 fn parse_ms(value: &str) -> Option<u64> {
@@ -409,6 +465,7 @@ PresentMon
 --terminate_after_timed
 --terminate_on_proc_exit
 --session_name
+--track_etw_status
 ";
 
     #[test]
@@ -453,6 +510,25 @@ PresentMon
         );
         assert!(parsed.gpu_metrics_available);
         assert!(parsed.display_metrics_available);
+        assert!(!parsed.etw_status_available);
+    }
+
+    #[test]
+    fn parses_etw_quality_counters_and_keeps_high_water_marks() {
+        let csv = concat!(
+            "ProcessID,SwapChainAddress,CPUStartQPC,FrameTime,EtwEventsLost,EtwBuffersLost,OverflowedPresents\n",
+            "42,0x1,1000,10.0,0,0,0\n",
+            "42,0x1,2000,10.0,2,1,3\n",
+            "42,0x1,3000,10.0,1,0,2\n"
+        );
+
+        let parsed =
+            parse_presentmon_csv(csv.as_bytes(), 42, 1_000, 120).expect("fixture should parse");
+
+        assert!(parsed.etw_status_available);
+        assert_eq!(parsed.etw_events_lost, Some(2));
+        assert_eq!(parsed.etw_buffers_lost, Some(1));
+        assert_eq!(parsed.overflowed_presents, Some(3));
     }
 
     #[test]
