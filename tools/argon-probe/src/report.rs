@@ -265,16 +265,47 @@ pub fn write_report(
     let report_path = output_directory.join(&file_name);
     let temporary_path = output_directory.join(format!(".{file_name}.tmp"));
 
-    let write_result = write_report_archive(
-        &temporary_path,
-        started_unix_ms,
-        ended_unix_ms,
-        qpc_anchor,
-        environment,
-        capabilities,
-        quality,
-        metrics,
-    );
+    let write_result = (|| -> Result<(), Box<dyn std::error::Error>> {
+        let file = File::create(&temporary_path)?;
+        let mut zip = zip::ZipWriter::new(file);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
+        let manifest = Manifest {
+            report_schema: 1,
+            probe_version: env!("CARGO_PKG_VERSION"),
+            probe_phase: "P0",
+            mode: "CAPTURE",
+            started_unix_ms,
+            ended_unix_ms,
+            qpc_anchor,
+            entries: REPORT_ENTRIES.to_vec(),
+        };
+
+        let summary = Summary {
+            frames: &metrics.summary,
+            metric_notes: MetricNotes {
+                cpu_frame_time: "PresentMon v2 FrameTime: time between CPU frame starts. This is recorded explicitly as CPU frame time, not treated as interchangeable with display duration.",
+                displayed_time: "PresentMon v2 DisplayedTime: how long a displayed frame remained on screen. NA rows are counted as not displayed only when the DisplayedTime column is actually available.",
+                low_fps: "Approximate slow-tail FPS values are derived from a 0.1 ms bounded histogram for the corresponding timing source.",
+                runtime_semantics_validation: "P0 metric structure is test-verified, but Minecraft 26.2/OpenGL metric semantics remain runtime-unverified until real runtime validation is completed.",
+            },
+        };
+
+        write_json(&mut zip, options, "manifest.json", &manifest)?;
+        write_json(&mut zip, options, "summary.json", &summary)?;
+        write_json(&mut zip, options, "quality.json", quality)?;
+        write_json(&mut zip, options, "environment.json", environment)?;
+        write_json(&mut zip, options, "capabilities.json", capabilities)?;
+
+        zip.start_file("frames/recent.csv", options)?;
+        zip.write_all(&frames_csv(&metrics.recent_frames)?)?;
+
+        let file = zip.finish()?;
+        file.sync_all()?;
+        Ok(())
+    })();
+
     if let Err(error) = write_result {
         fs::remove_file(&temporary_path).ok();
         return Err(error);
@@ -285,57 +316,12 @@ pub fn write_report(
         return Err(error);
     }
 
-    fs::rename(&temporary_path, &report_path)?;
+    if let Err(error) = fs::rename(&temporary_path, &report_path) {
+        fs::remove_file(&temporary_path).ok();
+        return Err(error.into());
+    }
+
     Ok(report_path)
-}
-
-fn write_report_archive(
-    path: &Path,
-    started_unix_ms: u128,
-    ended_unix_ms: u128,
-    qpc_anchor: QpcAnchor,
-    environment: &EnvironmentSnapshot,
-    capabilities: &CapabilitySnapshot,
-    quality: &QualitySnapshot,
-    metrics: &CaptureMetrics,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let file = File::create(path)?;
-    let mut zip = zip::ZipWriter::new(file);
-    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-
-    let manifest = Manifest {
-        report_schema: 1,
-        probe_version: env!("CARGO_PKG_VERSION"),
-        probe_phase: "P0",
-        mode: "CAPTURE",
-        started_unix_ms,
-        ended_unix_ms,
-        qpc_anchor,
-        entries: REPORT_ENTRIES.to_vec(),
-    };
-
-    let summary = Summary {
-        frames: &metrics.summary,
-        metric_notes: MetricNotes {
-            cpu_frame_time: "PresentMon v2 FrameTime: time between CPU frame starts. This is recorded explicitly as CPU frame time, not treated as interchangeable with display duration.",
-            displayed_time: "PresentMon v2 DisplayedTime: how long a displayed frame remained on screen. NA rows are counted as not displayed only when the DisplayedTime column is actually available.",
-            low_fps: "Approximate slow-tail FPS values are derived from a 0.1 ms bounded histogram for the corresponding timing source.",
-            runtime_semantics_validation: "P0 metric structure is test-verified, but Minecraft 26.2/OpenGL metric semantics remain runtime-unverified until real runtime validation is completed.",
-        },
-    };
-
-    write_json(&mut zip, options, "manifest.json", &manifest)?;
-    write_json(&mut zip, options, "summary.json", &summary)?;
-    write_json(&mut zip, options, "quality.json", quality)?;
-    write_json(&mut zip, options, "environment.json", environment)?;
-    write_json(&mut zip, options, "capabilities.json", capabilities)?;
-
-    zip.start_file("frames/recent.csv", options)?;
-    zip.write_all(&frames_csv(&metrics.recent_frames)?)?;
-
-    let file = zip.finish()?;
-    file.sync_all()?;
-    Ok(())
 }
 
 pub fn validate_report(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
