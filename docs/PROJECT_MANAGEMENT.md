@@ -70,11 +70,42 @@ Unknown Iris versions do not automatically receive the patch. Compatibility can 
 
 ## Version format
 
-Release: `0.1.0+mc26.2`
+Argon uses:
 
-Development: `0.1.0-dev.N+mc26.2`
+```text
+X.Y.Z+<minecraft-version>
+```
 
-Release candidate: `0.1.0-rc.N+mc26.2`
+For the current Minecraft line:
+
+```text
+X.Y.Z+26.2
+```
+
+The fields have project-specific meanings:
+
+- **X — major content version.** X is currently `1`. It changes only when the project owner explicitly decides that Argon has entered a new major version.
+- **Y — release version.** Y identifies the Argon release line within Minecraft 26.2. When development moves to the next release line, Y increments.
+- **Z — development iteration.** Z increments by 1 for each development iteration made for the same Y release line.
+- **+26.2 — Minecraft target.** Minecraft versions remain explicitly isolated from Argon's X/Y/Z numbering.
+
+When Y increments, Z resets for the new release line.
+
+Examples:
+
+```text
+1.0.0+26.2
+1.0.1+26.2
+1.0.2+26.2
+...
+1.1.0+26.2
+1.1.1+26.2
+...
+```
+
+Do not encode temporary validation states such as `dev`, `alpha`, `beta`, or `rc` into the version string by default. Validation status is tracked separately as compile/package/structure/runtime/visual/performance verification.
+
+The repository may temporarily retain an older version string during migration. Do not choose the migration target implicitly; update it only after the project owner specifies the new X/Y/Z baseline.
 
 ## Commit policy
 
@@ -125,12 +156,14 @@ Compile-only validation does not satisfy runtime, visual, or performance gates.
 
 ## Release process
 
-1. Finish scoped issues.
+1. Finish scoped issues for the current Y release line.
 2. Run runtime correctness and compatibility checks.
 3. Record benchmark evidence.
 4. Finalize the changelog.
-5. Change `mod_version` from a development version to the release version.
-6. Merge the release work into `mc/26.2`.
-7. Merge/tag the stable release as appropriate on `main`.
-8. Tag the release commit `vX.Y.Z`.
-9. Publish the CI-built JAR.
+5. Merge the release work into `mc/26.2`.
+6. Merge/tag the stable release as appropriate on `main`.
+7. Tag the release commit using its full Argon version, for example `v1.0.12+26.2`.
+8. Publish the CI-built JAR.
+9. When starting the next release line, increment Y and reset Z before new development iterations begin.
+
+X changes only by an explicit project-owner decision.
