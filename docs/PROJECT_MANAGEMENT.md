@@ -10,27 +10,15 @@ Current validation state is tracked in `docs/VALIDATION_STATUS.md`. At present, 
 
 ## Version isolation
 
-Argon isolates Minecraft versions at three levels.
+Argon isolates Minecraft versions in source and reference boundaries while using `main` as the single active development branch.
 
-### Git release lines
+### Git development line
 
-```text
-main
-└── mc/26.2
-    └── dev/26.2/v0.1.0-iris-uniforms
-```
+All current development, fixes, documentation, tooling, and release preparation are committed directly to `main`.
 
-`main` is the stable project integration line.
+Historical `mc/<version>` and `dev/<version>/...` branches are not part of the active workflow. New Minecraft versions do not require a new long-lived Git branch by default.
 
-`mc/<minecraft-version>` is the long-lived maintenance line for one Minecraft version.
-
-Feature work branches from the matching Minecraft line:
-
-```text
-dev/<minecraft-version>/<release>-<scope>
-```
-
-A future Minecraft 26.3 implementation branches into `mc/26.3`; it does not accumulate compatibility conditionals inside the 26.2 line.
+Version separation must instead remain explicit in source packages, integration layers, configuration, tests, and reference directories.
 
 ### Source integration layers
 
@@ -156,14 +144,13 @@ Compile-only validation does not satisfy runtime, visual, or performance gates.
 
 ## Release process
 
-1. Finish scoped issues for the current Y release line.
+1. Finish scoped issues for the current Y release line on `main`.
 2. Run runtime correctness and compatibility checks.
 3. Record benchmark evidence.
 4. Finalize the changelog.
-5. Merge the release work into `mc/26.2`.
-6. Merge/tag the stable release as appropriate on `main`.
-7. Tag the release commit using its full Argon version, for example `v1.0.12+26.2`.
-8. Publish the CI-built JAR.
-9. When starting the next release line, increment Y and reset Z before new development iterations begin.
+5. Confirm the target `main` commit passes the required validation gates.
+6. Tag that `main` commit using its full Argon version, for example `v1.0.12+26.2`.
+7. Publish the CI-built JAR.
+8. When starting the next release line, increment Y and reset Z before new development iterations begin.
 
 X changes only by an explicit project-owner decision.
