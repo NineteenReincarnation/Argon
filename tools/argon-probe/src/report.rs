@@ -32,6 +32,7 @@ pub struct CapabilitySnapshot {
     pub presentmon_gpu_tracking_requested: bool,
     pub presentmon_gpu_metrics: bool,
     pub presentmon_display_metrics: bool,
+    pub presentmon_etw_status: bool,
     pub jfr: bool,
     pub deep_agent: bool,
 }
@@ -53,7 +54,10 @@ pub struct QualitySnapshot {
     pub stream_count: usize,
     pub primary_frame_share: f64,
     pub rows_rejected: u64,
-    pub present_events_lost: Option<u64>,
+    pub etw_loss_detection_available: bool,
+    pub etw_events_lost: Option<u64>,
+    pub etw_buffers_lost: Option<u64>,
+    pub overflowed_presents: Option<u64>,
     pub presentmon_exit_code: Option<i32>,
     pub notes: Vec<String>,
 }
@@ -149,14 +153,43 @@ pub fn quality_snapshot(capture: &PresentMonCapture) -> QualitySnapshot {
                 .to_owned(),
         );
     }
+    if !capture.etw_status_available {
+        notes.push(
+            "PresentMon ETW loss counters are unavailable; this capture cannot be treated as benchmark-quality evidence"
+                .to_owned(),
+        );
+    }
+    if capture.etw_events_lost.unwrap_or(0) > 0 {
+        notes.push(format!(
+            "{} ETW event(s) were reported lost",
+            capture.etw_events_lost.unwrap_or(0)
+        ));
+    }
+    if capture.etw_buffers_lost.unwrap_or(0) > 0 {
+        notes.push(format!(
+            "{} ETW buffer(s) were reported lost",
+            capture.etw_buffers_lost.unwrap_or(0)
+        ));
+    }
+    if capture.overflowed_presents.unwrap_or(0) > 0 {
+        notes.push(format!(
+            "{} PresentMon present event(s) overflowed the consumer buffer",
+            capture.overflowed_presents.unwrap_or(0)
+        ));
+    }
 
     let exit_failed = capture.exit_code.is_some_and(|code| code != 0);
+    let trace_loss = capture.etw_events_lost.unwrap_or(0) > 0
+        || capture.etw_buffers_lost.unwrap_or(0) > 0
+        || capture.overflowed_presents.unwrap_or(0) > 0;
     let capture_quality = if summary.frames < 30 || exit_failed {
         "INVALID"
     } else if capture.rows_rejected > 0
         || summary.primary_frame_share < 0.80
         || summary.frames < 300
         || (capture.gpu_tracking_requested && !capture.gpu_metrics_available)
+        || !capture.etw_status_available
+        || trace_loss
     {
         "DEGRADED"
     } else {
@@ -170,7 +203,10 @@ pub fn quality_snapshot(capture: &PresentMonCapture) -> QualitySnapshot {
         stream_count: summary.stream_count,
         primary_frame_share: summary.primary_frame_share,
         rows_rejected: capture.rows_rejected,
-        present_events_lost: None,
+        etw_loss_detection_available: capture.etw_status_available,
+        etw_events_lost: capture.etw_events_lost,
+        etw_buffers_lost: capture.etw_buffers_lost,
+        overflowed_presents: capture.overflowed_presents,
         presentmon_exit_code: capture.exit_code,
         notes,
     }
@@ -198,6 +234,7 @@ pub fn capability_snapshot(
         presentmon_gpu_tracking_requested: capture.gpu_tracking_requested,
         presentmon_gpu_metrics: capture.gpu_metrics_available,
         presentmon_display_metrics: capture.display_metrics_available,
+        presentmon_etw_status: capture.etw_status_available,
         jfr: false,
         deep_agent: false,
     }
@@ -377,6 +414,7 @@ mod tests {
             presentmon_gpu_tracking_requested: true,
             presentmon_gpu_metrics: true,
             presentmon_display_metrics: true,
+            presentmon_etw_status: true,
             jfr: false,
             deep_agent: false,
         };
@@ -387,7 +425,10 @@ mod tests {
             stream_count: 1,
             primary_frame_share: 1.0,
             rows_rejected: 0,
-            present_events_lost: None,
+            etw_loss_detection_available: true,
+            etw_events_lost: Some(0),
+            etw_buffers_lost: Some(0),
+            overflowed_presents: Some(0),
             presentmon_exit_code: Some(0),
             notes: Vec::new(),
         };
