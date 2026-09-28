@@ -150,10 +150,6 @@ pub fn capture(
         command.arg("--no_track_gpu");
     }
 
-    if backend.etw_status_tracking {
-        command.arg(ETW_STATUS_CLI_OPTION);
-    }
-
     let mut child = command
         .arg("--timed")
         .arg(&duration_arg)
@@ -184,6 +180,24 @@ pub fn capture(
         .join()
         .map_err(|_| "PresentMon stderr reader thread panicked")??;
     let warnings = parse_presentmon_warnings(&String::from_utf8_lossy(&stderr_bytes));
+    let etw_status_available = parsed.etw_status_available
+        || backend.etw_status_tracking
+        || warnings.has_loss_evidence();
+    let etw_events_lost = quality_counter(
+        etw_status_available,
+        parsed.etw_events_lost,
+        warnings.etw_events_lost,
+    );
+    let etw_buffers_lost = quality_counter(
+        etw_status_available,
+        parsed.etw_buffers_lost,
+        warnings.etw_buffers_lost,
+    );
+    let overflowed_presents = quality_counter(
+        etw_status_available,
+        parsed.overflowed_presents,
+        warnings.overflowed_presents,
+    );
 
     Ok(PresentMonCapture {
         metrics: parsed.metrics,
@@ -192,19 +206,10 @@ pub fn capture(
         exit_code: status.code(),
         gpu_metrics_available: parsed.gpu_metrics_available,
         display_metrics_available: parsed.display_metrics_available,
-        etw_status_available: parsed.etw_status_available,
-        etw_events_lost: max_optional(
-            parsed.etw_events_lost,
-            warnings.etw_events_lost,
-        ),
-        etw_buffers_lost: max_optional(
-            parsed.etw_buffers_lost,
-            warnings.etw_buffers_lost,
-        ),
-        overflowed_presents: max_optional(
-            parsed.overflowed_presents,
-            warnings.overflowed_presents,
-        ),
+        etw_status_available,
+        etw_events_lost,
+        etw_buffers_lost,
+        overflowed_presents,
     })
 }
 
@@ -224,6 +229,14 @@ struct PresentMonWarnings {
     etw_events_lost: Option<u64>,
     etw_buffers_lost: Option<u64>,
     overflowed_presents: Option<u64>,
+}
+
+impl PresentMonWarnings {
+    fn has_loss_evidence(&self) -> bool {
+        self.etw_events_lost.is_some()
+            || self.etw_buffers_lost.is_some()
+            || self.overflowed_presents.is_some()
+    }
 }
 
 fn parse_presentmon_csv<R: Read>(
@@ -421,6 +434,14 @@ fn max_optional(current: Option<u64>, next: Option<u64>) -> Option<u64> {
     }
 }
 
+fn quality_counter(available: bool, sampled: Option<u64>, final_warning: Option<u64>) -> Option<u64> {
+    if available {
+        Some(max_optional(sampled, final_warning).unwrap_or(0))
+    } else {
+        None
+    }
+}
+
 fn parse_ms(value: &str) -> Option<u64> {
     if value.is_empty() || value.eq_ignore_ascii_case("NA") {
         return None;
@@ -506,7 +527,9 @@ fn unix_millis() -> u128 {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_presentmon_csv, parse_presentmon_warnings, validate_help_contract};
+    use super::{
+        parse_presentmon_csv, parse_presentmon_warnings, quality_counter, validate_help_contract,
+    };
 
     const SUPPORTED_HELP: &str = "
 PresentMon
@@ -547,6 +570,13 @@ PresentMon
         assert_eq!(warnings.etw_buffers_lost, Some(2));
         assert_eq!(warnings.etw_events_lost, Some(5));
         assert_eq!(warnings.overflowed_presents, Some(3));
+    }
+
+    #[test]
+    fn zero_quality_counter_requires_a_supported_diagnostic_path() {
+        assert_eq!(quality_counter(false, None, None), None);
+        assert_eq!(quality_counter(true, None, None), Some(0));
+        assert_eq!(quality_counter(true, Some(2), Some(5)), Some(5));
     }
 
     #[test]
