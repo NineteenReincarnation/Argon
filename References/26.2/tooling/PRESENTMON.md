@@ -35,7 +35,11 @@ Argon Probe P0 currently needs the official PresentMon console CLI to expose:
 --session_name
 ```
 
-When the optional `--track_etw_status` surface is available, Probe enables it and consumes PresentMon's ETW quality counters. Absence of this optional surface does not abort capture, but the resulting report is quality-degraded and must not be treated as benchmark-quality evidence.
+Probe detects the optional `--track_etw_status` surface but does not enable it in the P0 stdout-CSV capture path. At the audited upstream commit, enabling it starts a one-second timer that calls `OutputEtwStatus()`, which writes `[ETW Status] ...` text to stdout. Because P0 also uses `--output_stdout` for CSV, enabling both would mix non-CSV console text into the frame stream.
+
+Instead, Probe captures PresentMon stderr concurrently and parses the fixed final warnings emitted after the trace stops for ETW events lost, ETW buffers lost, and overflowed present events. `PrintWarning()` writes to stderr at the audited source state. Raw stderr is not retained in the report.
+
+Presence of `--track_etw_status` is used only as a capability signal that this audited ETW-diagnostic surface exists. If that surface is absent and no explicit loss evidence is available, capture may continue but quality is degraded because zero loss cannot be established.
 
 Probe performs a runtime preflight against `PresentMon --help` and refuses the P0 capture with a concrete missing-option error if this surface is not available.
 
@@ -73,7 +77,9 @@ EtwBuffersLost
 OverflowedPresents
 ```
 
-The three ETW status fields are emitted by PresentMon when `--track_etw_status` is enabled. Probe records their maximum observed values across the capture. Non-zero loss/overflow values degrade capture quality. If the status capability is unavailable, capture may continue but cannot receive a `GOOD` quality classification.
+The three ETW status fields are supported by Probe's parser if they are present, and Probe records their maximum observed values across the capture. P0 does not request them in the normal stdout-CSV path because enabling `--track_etw_status` also emits periodic non-CSV status lines to stdout at the audited upstream commit.
+
+For the normal P0 path, final ETW loss values come from PresentMon's stderr warnings after trace shutdown. Non-zero loss/overflow values degrade capture quality. If no reliable diagnostic surface is available, capture may continue but cannot receive a `GOOD` quality classification.
 
 Missing optional metrics must disable only the corresponding evidence. They must not fabricate zero values or make unrelated Probe collection fail.
 
@@ -100,8 +106,10 @@ Verified statically / by CI:
 - separation of CPU `FrameTime` from display-side `DisplayedTime`;
 - distinction between an unavailable `DisplayedTime` column and a per-row `NA`;
 - required CLI-option preflight logic;
-- optional `--track_etw_status` capability detection;
-- ETW events-lost / buffers-lost / overflowed-present CSV parsing;
+- optional `--track_etw_status` capability detection without enabling the stdout-polluting status timer;
+- ETW events-lost / buffers-lost / overflowed-present CSV parsing when those fields are present;
+- concurrent stderr draining and final PresentMon ETW-loss warning parsing;
+- merging sampled/final loss counters by high-water mark;
 - quality downgrade rules for missing or non-zero ETW loss evidence.
 
 Not yet verified:
@@ -111,7 +119,7 @@ Not yet verified:
 - real Minecraft validation of ETW loss reporting semantics;
 - Probe OFF/ON measurement overhead.
 
-Those remain runtime gates in issue #9.
+Those remain runtime validation gates.
 
 ## Update rule
 
