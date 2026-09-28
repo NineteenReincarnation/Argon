@@ -104,3 +104,10 @@ A clean simulation therefore gives two useful measurements without changing shad
 - zero/non-zero classification/dependency mismatches.
 
 Simulation is diagnostic and cannot be combined with performance mode.
+
+
+### Measurement-window mode identity
+
+The Phase B mode is captured when each reporting interval begins. If simulation disables itself after detecting a mismatch, that interval remains labeled `SIMULATE` so its mismatch evidence is not misclassified as an OFF/baseline window. The next interval is labeled with the post-fallback mode.
+
+CI also checks that every supported Iris 26.2 JAR still exposes the expected `random`, `randomInt`, and dynamic `smooth` function-registration surface used by the conservative classifier assumptions.

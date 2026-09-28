@@ -41,6 +41,7 @@ public final class IrisUniformInstrumentation {
     private static long warmupUntilNanos;
     private static long intervalStartedNanos;
     private static long pipelineGeneration;
+    private static String intervalPhaseBMode = "OFF";
 
     private static long completedFrames;
     private static long evaluations;
@@ -115,6 +116,7 @@ public final class IrisUniformInstrumentation {
 
             measurementStarted = true;
             intervalStartedNanos = now;
+            intervalPhaseBMode = IrisUniformEvaluationPlanner.modeName();
             Argon.LOGGER.info(
                 "[Phase 0][Iris uniforms] Warm-up complete; generation={}, reporting every {} second(s), CSV={}.",
                 pipelineGeneration,
@@ -265,6 +267,7 @@ public final class IrisUniformInstrumentation {
         Report report = new Report(
             Instant.now().toString(),
             pipelineGeneration,
+            intervalPhaseBMode,
             completedFrames,
             SEEN_UNIFORMS.size(),
             PROGRAM_REVISIONS.size(),
@@ -306,7 +309,7 @@ public final class IrisUniformInstrumentation {
             report.phaseAFastPathSkipsPerFrame(),
             report.phaseAIncrementalScansPerFrame(),
             report.phaseAFullScansPerFrame(),
-            IrisUniformEvaluationPlanner.modeName(),
+            report.phaseBMode(),
             report.phaseBEvaluationSkipsPerFrame(),
             report.phaseBSimulatedSkipsPerFrame(),
             report.phaseBCandidateEvaluationsPerFrame(),
@@ -335,6 +338,7 @@ public final class IrisUniformInstrumentation {
 
         resetMeasurementCounters();
         intervalStartedNanos = now;
+        intervalPhaseBMode = IrisUniformEvaluationPlanner.modeName();
     }
 
     private static void appendCsv(Report report) {
@@ -363,7 +367,7 @@ public final class IrisUniformInstrumentation {
             output.append(csv(report.timestampUtc())).append(',')
                 .append(report.pipelineGeneration()).append(',')
                 .append(IrisUniformDeduplicator.isEnabled()).append(',')
-                .append(csv(IrisUniformEvaluationPlanner.modeName())).append(',')
+                .append(csv(report.phaseBMode())).append(',')
                 .append(csv(CompatibilityBaseline26_2.installedVersion("argon").orElse("unknown"))).append(',')
                 .append(csv(CompatibilityBaseline26_2.installedVersion("minecraft").orElse("unknown"))).append(',')
                 .append(csv(CompatibilityBaseline26_2.installedVersion("iris").orElse("unknown"))).append(',')
@@ -424,6 +428,7 @@ public final class IrisUniformInstrumentation {
 
         resetMeasurementCounters();
         intervalStartedNanos = System.nanoTime();
+        intervalPhaseBMode = IrisUniformEvaluationPlanner.modeName();
 
         Argon.LOGGER.warn(
             "[Phase 0][Iris uniforms] Discarded the current measurement window because Phase A fell back to Iris' original upload path."
@@ -478,6 +483,7 @@ public final class IrisUniformInstrumentation {
     private record Report(
         String timestampUtc,
         long pipelineGeneration,
+        String phaseBMode,
         long frames,
         int uniforms,
         int programs,

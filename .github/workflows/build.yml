@@ -304,6 +304,7 @@ jobs:
                   javap -private -classpath "$JAR" kroppeb.stareval.function.TypedFunction > "$OUT/typed-function.txt"
                   javap -private -classpath "$JAR" kroppeb.stareval.function.FunctionResolver > "$OUT/function-resolver.txt"
                   javap -private -classpath "$JAR" net.irisshaders.iris.parsing.IrisFunctions > "$OUT/iris-functions.txt"
+                  javap -c -p -classpath "$JAR" net.irisshaders.iris.parsing.IrisFunctions > "$OUT/iris-functions-bytecode.txt"
 
                   grep -Fq "variablesExpressions;" "$OUT/custom-uniforms-phaseb.txt"
                   grep -Fq "dependsOn;" "$OUT/custom-uniforms-phaseb.txt"
@@ -314,6 +315,12 @@ jobs:
                   grep -Fq "boolean isPure();" "$OUT/typed-function.txt"
                   grep -Fq "functions;" "$OUT/function-resolver.txt"
                   grep -Fq "functions;" "$OUT/iris-functions.txt"
+
+                  grep -Fq "String random" "$OUT/iris-functions-bytecode.txt"
+                  grep -Fq "String randomInt" "$OUT/iris-functions-bytecode.txt"
+                  grep -Fq "String smooth" "$OUT/iris-functions-bytecode.txt"
+                  grep -Fq "java/util/Random" "$OUT/iris-functions-bytecode.txt"
+                  grep -Fq "addDynamicFunction" "$OUT/iris-functions-bytecode.txt"
 
                   echo "Iris ${{ matrix.runtime }} matches the Phase B expression-analysis surface."
 
