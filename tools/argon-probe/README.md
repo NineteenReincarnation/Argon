@@ -50,6 +50,8 @@ argon-probe.exe capture `
 
 PresentMon is intentionally not vendored into this repository. P0 accepts an official PresentMon console executable via `--presentmon`, `ARGON_PROBE_PRESENTMON`, the Probe executable directory, or `PATH`.
 
+The audited PresentMon source/CLI contract used for P0 is recorded in [`References/26.2/tooling/PRESENTMON.md`](../../References/26.2/tooling/PRESENTMON.md). Runtime compatibility is still determined from the required CLI/CSV surface, not from a version-string prefix.
+
 ---
 
 ## 1. Purpose
