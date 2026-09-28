@@ -67,9 +67,12 @@ impl ProbeFootprint {
 fn snapshot_current_process() -> Result<ProcessResourceSnapshot, String> {
     let system = System::new_all();
     let pid = Pid::from_u32(std::process::id());
-    let process = system
-        .process(pid)
-        .ok_or_else(|| format!("Argon Probe process {} is not visible to sysinfo", pid.as_u32()))?;
+    let process = system.process(pid).ok_or_else(|| {
+        format!(
+            "Argon Probe process {} is not visible to sysinfo",
+            pid.as_u32()
+        )
+    })?;
     let disk = process.disk_usage();
 
     Ok(ProcessResourceSnapshot {
