@@ -1,6 +1,5 @@
 use crate::metrics::{CaptureAccumulator, CaptureMetrics, FrameSample};
 use csv::{ReaderBuilder, StringRecord};
-use serde::Serialize;
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
@@ -8,7 +7,6 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-#[derive(Debug, Serialize)]
 pub struct PresentMonCapture {
     pub metrics: CaptureMetrics,
     pub backend_version: Option<String>,
