@@ -22,6 +22,9 @@ Implemented and CI-verified:
 - bounded QPC-based recent-frame ring;
 - bounded histogram statistics for P50/P95/P99/P99.9 and approximate 1%/0.1% lows;
 - environment/capability/quality metadata;
+- capability-gated PresentMon ETW loss tracking using `--track_etw_status` when available;
+- ETW events-lost, buffers-lost, and overflowed-present high-water marks in `quality.json`;
+- automatic quality downgrade when ETW loss evidence is unavailable or non-zero;
 - ZIP report generation and report-entry round-trip tests;
 - Windows CLI smoke tests.
 
@@ -30,7 +33,7 @@ Not yet verified:
 - Minecraft 26.2 runtime process detection on a real developer machine;
 - real PresentMon capture against Minecraft/OpenGL;
 - runtime correctness of the chosen PresentMon CPU/display timing metrics for Argon benchmark conclusions;
-- lost-ETW-event detection;
+- real-world validation that PresentMon ETW loss counters behave as expected for Minecraft/OpenGL;
 - Probe OFF/ON measurement overhead;
 - any ≤0.5% or ≤1% overhead target.
 
