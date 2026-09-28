@@ -35,6 +35,8 @@ Argon Probe P0 currently needs the official PresentMon console CLI to expose:
 --session_name
 ```
 
+When the optional `--track_etw_status` surface is available, Probe enables it and consumes PresentMon's ETW quality counters. Absence of this optional surface does not abort capture, but the resulting report is quality-degraded and must not be treated as benchmark-quality evidence.
+
 Probe performs a runtime preflight against `PresentMon --help` and refuses the P0 capture with a concrete missing-option error if this surface is not available.
 
 P0 uses `--no_track_gpu` by default so the base capture requests CPU/display evidence without unconditional GPU-duration tracking. The Probe CLI flag `--track-gpu` removes that suppression for a targeted capture. The actual overhead difference remains a runtime benchmark question; the default is chosen to minimize requested tracing work, not to claim a measured percentage improvement.
@@ -66,7 +68,12 @@ GPUBusy
 DisplayedTime
 PresentMode
 PresentRuntime
+EtwEventsLost
+EtwBuffersLost
+OverflowedPresents
 ```
+
+The three ETW status fields are emitted by PresentMon when `--track_etw_status` is enabled. Probe records their maximum observed values across the capture. Non-zero loss/overflow values degrade capture quality. If the status capability is unavailable, capture may continue but cannot receive a `GOOD` quality classification.
 
 Missing optional metrics must disable only the corresponding evidence. They must not fabricate zero values or make unrelated Probe collection fail.
 
@@ -92,13 +99,16 @@ Verified statically / by CI:
 - QPC raw-value handling;
 - separation of CPU `FrameTime` from display-side `DisplayedTime`;
 - distinction between an unavailable `DisplayedTime` column and a per-row `NA`;
-- required CLI-option preflight logic.
+- required CLI-option preflight logic;
+- optional `--track_etw_status` capability detection;
+- ETW events-lost / buffers-lost / overflowed-present CSV parsing;
+- quality downgrade rules for missing or non-zero ETW loss evidence.
 
 Not yet verified:
 
 - real Minecraft 26.2/OpenGL PresentMon capture;
 - which PresentMon frame metric(s) should be primary for final Argon benchmark conclusions;
-- ETW lost-event reporting;
+- real Minecraft validation of ETW loss reporting semantics;
 - Probe OFF/ON measurement overhead.
 
 Those remain runtime gates in issue #9.
