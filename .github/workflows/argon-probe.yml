@@ -4,8 +4,6 @@ on:
     push:
         branches:
             - main
-            - "mc/**"
-            - "dev/**"
         paths:
             - "tools/argon-probe/**"
             - ".github/workflows/argon-probe.yml"
