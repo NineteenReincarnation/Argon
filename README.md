@@ -26,7 +26,7 @@ Current version format:
 X.Y.Z+<minecraft-version>
 ```
 
-For the current line, `X` is the major content version, `Y` is the release line, and `Z` is the development iteration. The Minecraft suffix identifies the target game version and does not replace Argon's own release numbering.
+For the current line, `X` is the major content version, `Y` is the release line, and `Z` is the development iteration. Argon starts from the `1.1` release line; there is no `1.0` line. The Minecraft suffix identifies the target game version and does not replace Argon's own release numbering.
 
 Version-sensitive compatibility code may still keep explicit boundaries where required by upstream API or bytecode differences.
 
