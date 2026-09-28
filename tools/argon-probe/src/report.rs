@@ -3,11 +3,20 @@ use crate::presentmon::{PresentMonBackend, PresentMonCapture};
 use crate::process::TargetProcess;
 use serde::Serialize;
 use std::fs::{self, File};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use sysinfo::{Pid, System};
 use zip::write::SimpleFileOptions;
+
+const REPORT_ENTRIES: &[&str] = &[
+    "manifest.json",
+    "summary.json",
+    "quality.json",
+    "environment.json",
+    "capabilities.json",
+    "frames/recent.csv",
+];
 
 #[derive(Debug, Serialize)]
 pub struct EnvironmentSnapshot {
@@ -253,8 +262,44 @@ pub fn write_report(
 
     let ended_unix_ms = unix_millis();
     let file_name = format!("argon-report-{ended_unix_ms}.zip");
-    let report_path = output_directory.join(file_name);
-    let file = File::create(&report_path)?;
+    let report_path = output_directory.join(&file_name);
+    let temporary_path = output_directory.join(format!(".{file_name}.tmp"));
+
+    let write_result = write_report_archive(
+        &temporary_path,
+        started_unix_ms,
+        ended_unix_ms,
+        qpc_anchor,
+        environment,
+        capabilities,
+        quality,
+        metrics,
+    );
+    if let Err(error) = write_result {
+        fs::remove_file(&temporary_path).ok();
+        return Err(error);
+    }
+
+    if let Err(error) = validate_report(&temporary_path) {
+        fs::remove_file(&temporary_path).ok();
+        return Err(error);
+    }
+
+    fs::rename(&temporary_path, &report_path)?;
+    Ok(report_path)
+}
+
+fn write_report_archive(
+    path: &Path,
+    started_unix_ms: u128,
+    ended_unix_ms: u128,
+    qpc_anchor: QpcAnchor,
+    environment: &EnvironmentSnapshot,
+    capabilities: &CapabilitySnapshot,
+    quality: &QualitySnapshot,
+    metrics: &CaptureMetrics,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let file = File::create(path)?;
     let mut zip = zip::ZipWriter::new(file);
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
@@ -266,14 +311,7 @@ pub fn write_report(
         started_unix_ms,
         ended_unix_ms,
         qpc_anchor,
-        entries: vec![
-            "manifest.json",
-            "summary.json",
-            "quality.json",
-            "environment.json",
-            "capabilities.json",
-            "frames/recent.csv",
-        ],
+        entries: REPORT_ENTRIES.to_vec(),
     };
 
     let summary = Summary {
@@ -282,7 +320,7 @@ pub fn write_report(
             cpu_frame_time: "PresentMon v2 FrameTime: time between CPU frame starts. This is recorded explicitly as CPU frame time, not treated as interchangeable with display duration.",
             displayed_time: "PresentMon v2 DisplayedTime: how long a displayed frame remained on screen. NA rows are counted as not displayed only when the DisplayedTime column is actually available.",
             low_fps: "Approximate slow-tail FPS values are derived from a 0.1 ms bounded histogram for the corresponding timing source.",
-            runtime_semantics_validation: "P0 metric structure is test-verified, but Minecraft 26.2/OpenGL metric semantics remain runtime-unverified until issue #9 is completed.",
+            runtime_semantics_validation: "P0 metric structure is test-verified, but Minecraft 26.2/OpenGL metric semantics remain runtime-unverified until real runtime validation is completed.",
         },
     };
 
@@ -295,8 +333,62 @@ pub fn write_report(
     zip.start_file("frames/recent.csv", options)?;
     zip.write_all(&frames_csv(&metrics.recent_frames)?)?;
 
-    zip.finish()?;
-    Ok(report_path)
+    let file = zip.finish()?;
+    file.sync_all()?;
+    Ok(())
+}
+
+pub fn validate_report(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let file = File::open(path)?;
+    let mut archive = zip::ZipArchive::new(file)?;
+
+    for required in REPORT_ENTRIES {
+        let entry = archive
+            .by_name(required)
+            .map_err(|_| format!("report is missing required entry {required}"))?;
+        if entry.size() == 0 {
+            return Err(format!("report entry {required} is empty").into());
+        }
+    }
+
+    for json_entry in [
+        "manifest.json",
+        "summary.json",
+        "quality.json",
+        "environment.json",
+        "capabilities.json",
+    ] {
+        let bytes = read_zip_entry(&mut archive, json_entry)?;
+        serde_json::from_slice::<serde_json::Value>(&bytes)
+            .map_err(|error| format!("report entry {json_entry} is invalid JSON: {error}"))?;
+    }
+
+    let manifest_bytes = read_zip_entry(&mut archive, "manifest.json")?;
+    let manifest: serde_json::Value = serde_json::from_slice(&manifest_bytes)?;
+    if manifest["report_schema"].as_u64() != Some(1) {
+        return Err("report manifest has an unsupported or missing report_schema".into());
+    }
+
+    let frames = read_zip_entry(&mut archive, "frames/recent.csv")?;
+    let mut csv = csv::Reader::from_reader(frames.as_slice());
+    let headers = csv.headers()?;
+    for required in ["swapchain", "qpc", "cpu_frame_time_ms"] {
+        if !headers.iter().any(|header| header == required) {
+            return Err(format!("frames/recent.csv is missing required column {required}").into());
+        }
+    }
+
+    Ok(())
+}
+
+fn read_zip_entry(
+    archive: &mut zip::ZipArchive<File>,
+    name: &str,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let mut entry = archive.by_name(name)?;
+    let mut bytes = Vec::new();
+    entry.read_to_end(&mut bytes)?;
+    Ok(bytes)
 }
 
 fn write_json<T: Serialize>(
@@ -498,6 +590,8 @@ mod tests {
             &metrics,
         )
         .expect("report should be written");
+
+        validate_report(&path).expect("fresh report should validate");
 
         let file = File::open(&path).expect("report file");
         let mut archive = zip::ZipArchive::new(file).expect("zip should open");
