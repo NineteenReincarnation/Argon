@@ -1,9 +1,54 @@
 # Argon Probe — Performance Evidence Collection Plan
 
-> Status: design baseline  
+> Status: design baseline + P0 implementation in progress  
 > Scope: independent developer tooling for Argon; **not part of the Argon Fabric mod**  
 > Initial validation target: Windows + Minecraft Java 26.2 / Fabric  
 > Repository location: `tools/argon-probe/`
+
+## Current implementation status
+
+Phase P0 now has an initial implementation on `dev/26.2/argon-probe`.
+
+Implemented and CI-verified:
+
+- Rust 1.95 standalone CLI build;
+- Windows release packaging;
+- conservative Minecraft Java process discovery with explicit `--pid` fallback;
+- external PresentMon CLI discovery/orchestration;
+- PresentMon v2/QPC CSV parsing fixtures;
+- per-swapchain frame aggregation and primary-stream selection;
+- bounded QPC-based recent-frame ring;
+- bounded histogram statistics for P50/P95/P99/P99.9 and approximate 1%/0.1% lows;
+- environment/capability/quality metadata;
+- ZIP report generation and report-entry round-trip tests;
+- Windows CLI smoke tests.
+
+Not yet verified:
+
+- Minecraft 26.2 runtime process detection on a real developer machine;
+- real PresentMon capture against Minecraft/OpenGL;
+- correctness of the chosen PresentMon metrics for Argon benchmark conclusions;
+- lost-ETW-event detection;
+- Probe OFF/ON measurement overhead;
+- any ≤0.5% or ≤1% overhead target.
+
+P0 therefore remains **compile/package/test verified only**, not runtime or overhead-benchmark verified.
+
+Basic P0 usage:
+
+```powershell
+argon-probe.exe list
+
+argon-probe.exe capture `
+    --pid <minecraft-pid> `
+    --presentmon C:\path\to\PresentMon.exe `
+    --duration-seconds 60 `
+    --output reports
+```
+
+PresentMon is intentionally not vendored into this repository. P0 accepts an official PresentMon console executable via `--presentmon`, `ARGON_PROBE_PRESENTMON`, the Probe executable directory, or `PATH`.
+
+---
 
 ## 1. Purpose
 
