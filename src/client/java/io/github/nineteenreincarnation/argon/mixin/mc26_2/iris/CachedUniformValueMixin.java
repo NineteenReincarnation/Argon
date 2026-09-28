@@ -1,5 +1,6 @@
-package io.github.nineteenreincarnation.argon.mixin.iris;
+package io.github.nineteenreincarnation.argon.mixin.mc26_2.iris;
 
+import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformDeduplicator;
 import io.github.nineteenreincarnation.argon.client.compat.iris.IrisUniformInstrumentation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -19,7 +20,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 )
 abstract class CachedUniformValueMixin {
     @Inject(method = "doUpdate", at = @At("RETURN"), remap = false)
-    private void argon$countValueChange(CallbackInfoReturnable<Boolean> cir) {
-        IrisUniformInstrumentation.onEvaluationResult(cir.getReturnValueZ());
+    private void argon$recordValueChange(CallbackInfoReturnable<Boolean> cir) {
+        boolean changed = cir.getReturnValueZ();
+
+        if (changed) {
+            ((IrisUniformDeduplicator.UniformState) (Object) this).argon$incrementRevision();
+        }
+
+        IrisUniformInstrumentation.onEvaluationResult(this, changed);
     }
 }

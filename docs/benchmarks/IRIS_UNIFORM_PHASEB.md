@@ -1,0 +1,113 @@
+# Phase B — Dependency-aware Iris Uniform Evaluation
+
+Status: **experimental, default OFF**
+
+Minecraft line: **26.2**
+
+Initial runtime baseline: **Iris 1.11.4 + Sodium 0.9.2 + Spooklementary 2.0.4**
+
+## Goal
+
+Reduce repeated custom-uniform expression evaluation without changing shader-visible values.
+
+## Safety model
+
+Phase B only considers a custom expression cacheable when its resolved Stareval expression is classified as **PURE**.
+
+The classifier uses Iris' resolved expression graph and function metadata:
+
+- `TypedFunction.isPure() == false` -> stateful, never skipped;
+- `random` / `randomInt` -> nondeterministic, never skipped;
+- unknown dynamic functions -> conservative UNKNOWN, never skipped;
+- constant/variable nodes and recognized pure static functions -> pure candidates when all child expressions are pure.
+
+This specifically excludes Spooklementary's `smooth(...)` chains.
+
+## Dependency revision rule
+
+Iris already builds a direct dependency graph for custom uniforms.
+
+Argon snapshots the revisions of a pure candidate's direct dependencies after a real evaluation.
+
+On the next `CachedUniform.update()`:
+
+```text
+all dependency revisions unchanged
+    -> skip evaluation
+
+any dependency revision changed
+    -> evaluate normally and refresh snapshot
+```
+
+A candidate with no dependencies evaluates once and may then remain cached.
+
+## Failure behavior
+
+Any unexpected Iris/Stareval reflection shape or dependency without Argon's revision state disables Phase B for the session and returns to Iris' original evaluation behavior.
+
+Phase B does not alter expression ASTs or shader-pack source.
+
+## Current validation level
+
+The code is compile/package validated only.
+
+CI audits the expression-analysis surface on all published Iris 1.11.x builds for Minecraft 26.2. Iris 1.11.0, 1.11.1, 1.11.2, and 1.11.4 currently pass that audit and are eligible for the explicit, default-off Phase B experiment.
+
+No runtime, visual, or performance claim is made yet.
+
+## Development switch
+
+```text
+-Dargon.experimental.irisUniformEvaluation=true
+```
+
+Repository helper:
+
+```powershell
+.\scripts\run-phase0.ps1 -EnablePhaseB
+```
+
+Phase A and Phase B can be enabled together for experimental testing:
+
+```powershell
+.\scripts\run-phase0.ps1 -EnablePhaseA -EnablePhaseB
+```
+
+
+## Diagnostics
+
+With detailed instrumentation enabled, Phase 0 reports:
+
+```text
+phaseBSkip/frame
+phaseBEval/frame
+```
+
+and the CSV stores the same values. The local analyzer reports the frame-weighted Phase B candidate skip ratio.
+
+
+## Simulation-only validation
+
+Before enabling behavior-changing evaluation skipping, Argon can run the same dependency-revision decision in **SIMULATE** mode:
+
+```powershell
+.\scripts\run-phase0.ps1 -SimulatePhaseB
+```
+
+Simulation mode never cancels Iris' `CachedUniform.update()`. It records when a pure candidate would have been skipped, then allows Iris to evaluate it normally.
+
+After that real evaluation, Argon compares the candidate's revision with its pre-evaluation revision. If the value changed despite all tracked dependency revisions being unchanged, the simulation records a mismatch and disables Phase B planning for the rest of the session.
+
+A clean simulation therefore gives two useful measurements without changing shader-visible behavior:
+
+- theoretical Phase B skip opportunity;
+- zero/non-zero classification/dependency mismatches.
+
+Simulation is diagnostic and cannot be combined with performance mode.
+
+
+### Measurement-window mode identity
+
+The Phase B mode is captured when each reporting interval begins. If simulation disables itself after detecting a mismatch, that interval remains labeled `SIMULATE` so its mismatch evidence is not misclassified as an OFF/baseline window. The next interval is labeled with the post-fallback mode.
+
+CI also checks that every supported Iris 26.2 JAR still exposes the expected `random`, `randomInt`, and dynamic `smooth` function-registration surface used by the conservative classifier assumptions.
