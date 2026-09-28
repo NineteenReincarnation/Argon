@@ -24,7 +24,7 @@ The script:
 
 1. initializes Git submodules if the pinned Spooklementary source is missing;
 2. starts the development client with the primary shader runtime stack;
-3. uses Fabric API 0.160.0+26.2, Sodium 0.9.2, Iris 1.11.4, and Spooklementary 2.0.4;
+3. uses Fabric API 0.161.0+26.2, Sodium 0.9.2, Iris 1.11.4, and Spooklementary 2.0.4;
 4. leaves Argon's Phase 0 instrumentation enabled;
 5. after Minecraft exits, extracts the relevant lines from `run/logs/latest.log`;
 6. writes `run/argon-phase0-summary.txt`.

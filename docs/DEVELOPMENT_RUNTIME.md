@@ -6,7 +6,7 @@ This document describes the reproducible development client used for the primary
 
 - Minecraft 26.2
 - Fabric Loader 0.19.5
-- Fabric API 0.160.0+26.2
+- Fabric API 0.161.0+26.2
 - Sodium 0.9.2
 - Iris 1.11.4
 - Spooklementary 2.0.4
