@@ -21,10 +21,10 @@ pub fn find_presentmon(explicit: Option<&Path>) -> Result<PathBuf, String> {
         return validate_candidate(path.to_path_buf());
     }
 
-    if let Some(path) = env::var_os("ARGON_PROBE_PRESENTMON") {
-        if let Ok(candidate) = validate_candidate(PathBuf::from(path)) {
-            return Ok(candidate);
-        }
+    if let Some(path) = env::var_os("ARGON_PROBE_PRESENTMON")
+        && let Ok(candidate) = validate_candidate(PathBuf::from(path))
+    {
+        return Ok(candidate);
     }
 
     if let Ok(current_exe) = env::current_exe()

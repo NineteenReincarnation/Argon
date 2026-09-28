@@ -42,7 +42,6 @@ pub struct FrameSummary {
 }
 
 pub struct CaptureAccumulator {
-    qpc_frequency_hz: u64,
     ring_window_ticks: u64,
     latest_qpc: u64,
     ring: VecDeque<FrameSample>,
@@ -78,7 +77,6 @@ pub struct CaptureMetrics {
 impl CaptureAccumulator {
     pub fn new(qpc_frequency_hz: u64, ring_seconds: u64) -> Self {
         Self {
-            qpc_frequency_hz,
             ring_window_ticks: qpc_frequency_hz.saturating_mul(ring_seconds),
             latest_qpc: 0,
             ring: VecDeque::new(),
@@ -177,9 +175,6 @@ impl CaptureAccumulator {
         })
     }
 
-    pub fn qpc_frequency_hz(&self) -> u64 {
-        self.qpc_frequency_hz
-    }
 }
 
 impl StreamState {
