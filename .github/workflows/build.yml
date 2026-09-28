@@ -4,9 +4,6 @@ on:
     push:
         branches:
             - main
-            - "mc/**"
-            - "dev/**"
-            - "fix/**"
     pull_request:
 
 permissions:
