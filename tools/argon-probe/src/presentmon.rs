@@ -162,16 +162,28 @@ pub fn capture(
         .arg("--session_name")
         .arg(&session_name)
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::piped())
         .spawn()?;
 
     let stdout = child
         .stdout
         .take()
         .ok_or("failed to capture PresentMon stdout")?;
+    let mut stderr = child
+        .stderr
+        .take()
+        .ok_or("failed to capture PresentMon stderr")?;
+    let stderr_reader = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stderr.read_to_end(&mut bytes).map(|_| bytes)
+    });
 
     let parsed = parse_presentmon_csv(stdout, pid, qpc_frequency_hz, ring_seconds)?;
     let status = child.wait()?;
+    let stderr_bytes = stderr_reader
+        .join()
+        .map_err(|_| "PresentMon stderr reader thread panicked")??;
+    let warnings = parse_presentmon_warnings(&String::from_utf8_lossy(&stderr_bytes));
 
     Ok(PresentMonCapture {
         metrics: parsed.metrics,
@@ -181,9 +193,12 @@ pub fn capture(
         gpu_metrics_available: parsed.gpu_metrics_available,
         display_metrics_available: parsed.display_metrics_available,
         etw_status_available: parsed.etw_status_available,
-        etw_events_lost: parsed.etw_events_lost,
-        etw_buffers_lost: parsed.etw_buffers_lost,
-        overflowed_presents: parsed.overflowed_presents,
+        etw_events_lost: max_optional(parsed.etw_events_lost, warnings.etw_events_lost),
+        etw_buffers_lost: max_optional(parsed.etw_buffers_lost, warnings.etw_buffers_lost),
+        overflowed_presents: max_optional(
+            parsed.overflowed_presents,
+            warnings.overflowed_presents,
+        ),
     })
 }
 
@@ -193,6 +208,13 @@ struct ParsedCapture {
     gpu_metrics_available: bool,
     display_metrics_available: bool,
     etw_status_available: bool,
+    etw_events_lost: Option<u64>,
+    etw_buffers_lost: Option<u64>,
+    overflowed_presents: Option<u64>,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+struct PresentMonWarnings {
     etw_events_lost: Option<u64>,
     etw_buffers_lost: Option<u64>,
     overflowed_presents: Option<u64>,
@@ -354,6 +376,26 @@ fn parse_required_ms(value: &str) -> Result<u64, String> {
     parse_ms(value).ok_or_else(|| format!("invalid required millisecond value {value:?}"))
 }
 
+fn parse_presentmon_warnings(stderr: &str) -> PresentMonWarnings {
+    PresentMonWarnings {
+        etw_events_lost: warning_high_water(stderr, "etw events were lost"),
+        etw_buffers_lost: warning_high_water(stderr, "etw buffers were lost"),
+        overflowed_presents: warning_high_water(stderr, "overflowed present events detected"),
+    }
+}
+
+fn warning_high_water(stderr: &str, marker: &str) -> Option<u64> {
+    stderr
+        .lines()
+        .filter(|line| line.to_ascii_lowercase().contains(marker))
+        .filter_map(|line| {
+            line.split(|character: char| !character.is_ascii_digit())
+                .find(|token| !token.is_empty())
+                .and_then(|token| token.parse::<u64>().ok())
+        })
+        .max()
+}
+
 fn parse_optional_ms(row: &StringRecord, index: Option<usize>) -> Option<u64> {
     index.and_then(|index| row.get(index)).and_then(parse_ms)
 }
@@ -458,7 +500,7 @@ fn unix_millis() -> u128 {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_presentmon_csv, validate_help_contract};
+    use super::{parse_presentmon_csv, parse_presentmon_warnings, validate_help_contract};
 
     const SUPPORTED_HELP: &str = "
 PresentMon
@@ -488,6 +530,17 @@ PresentMon
 
         assert!(error.contains("--v2_metrics"));
         assert!(error.contains("--qpc_time"));
+    }
+
+    #[test]
+    fn parses_final_presentmon_loss_warnings_without_retaining_raw_stderr() {
+        let warnings = parse_presentmon_warnings(
+            "warning: 2 ETW buffers were lost.\nwarning: 5 ETW events were lost.\nwarning: 3 overflowed present events detected. This could be due to a high-fps application.\n",
+        );
+
+        assert_eq!(warnings.etw_buffers_lost, Some(2));
+        assert_eq!(warnings.etw_events_lost, Some(5));
+        assert_eq!(warnings.overflowed_presents, Some(3));
     }
 
     #[test]
