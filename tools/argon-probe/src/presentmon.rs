@@ -193,8 +193,14 @@ pub fn capture(
         gpu_metrics_available: parsed.gpu_metrics_available,
         display_metrics_available: parsed.display_metrics_available,
         etw_status_available: parsed.etw_status_available,
-        etw_events_lost: max_optional(parsed.etw_events_lost, warnings.etw_events_lost),
-        etw_buffers_lost: max_optional(parsed.etw_buffers_lost, warnings.etw_buffers_lost),
+        etw_events_lost: max_optional(
+            parsed.etw_events_lost,
+            warnings.etw_events_lost,
+        ),
+        etw_buffers_lost: max_optional(
+            parsed.etw_buffers_lost,
+            warnings.etw_buffers_lost,
+        ),
         overflowed_presents: max_optional(
             parsed.overflowed_presents,
             warnings.overflowed_presents,
