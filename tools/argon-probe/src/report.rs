@@ -359,6 +359,58 @@ mod tests {
     use std::io::Read;
 
     #[test]
+    fn quality_requires_available_zero_loss_etw_evidence_for_good_capture() {
+        let mut accumulator = CaptureAccumulator::new(1_000, 120, false);
+        for qpc in 1..=400 {
+            accumulator.observe(
+                FrameSample {
+                    swapchain: 1,
+                    qpc,
+                    cpu_frame_time_us: 10_000,
+                    cpu_busy_us: None,
+                    cpu_wait_us: None,
+                    gpu_time_us: None,
+                    gpu_busy_us: None,
+                    displayed_time_us: None,
+                },
+                None,
+                None,
+            );
+        }
+
+        let mut capture = PresentMonCapture {
+            metrics: accumulator.finish().expect("metrics"),
+            rows_rejected: 0,
+            exit_code: Some(0),
+            gpu_tracking_requested: false,
+            gpu_metrics_available: false,
+            display_metrics_available: false,
+            etw_status_available: false,
+            etw_events_lost: None,
+            etw_buffers_lost: None,
+            overflowed_presents: None,
+        };
+
+        assert_eq!(quality_snapshot(&capture).capture_quality, "DEGRADED");
+
+        capture.etw_status_available = true;
+        capture.etw_events_lost = Some(0);
+        capture.etw_buffers_lost = Some(0);
+        capture.overflowed_presents = Some(0);
+        assert_eq!(quality_snapshot(&capture).capture_quality, "GOOD");
+
+        capture.etw_events_lost = Some(1);
+        let degraded = quality_snapshot(&capture);
+        assert_eq!(degraded.capture_quality, "DEGRADED");
+        assert!(
+            degraded
+                .notes
+                .iter()
+                .any(|note| note.contains("ETW event(s) were reported lost"))
+        );
+    }
+
+    #[test]
     fn report_contains_required_entries_and_explicit_metric_semantics() {
         let unique = format!("argon-probe-test-{}-{}", std::process::id(), unix_millis());
         let directory = std::env::temp_dir().join(unique);
