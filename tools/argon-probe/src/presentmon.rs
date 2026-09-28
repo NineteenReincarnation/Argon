@@ -207,7 +207,7 @@ impl Layout {
 
         Ok(ParsedRow {
             sample: FrameSample {
-                swapchain: parse_swapchain(field(row, self.swapchain)?),
+                swapchain: parse_swapchain(field(row, self.swapchain)?)?,
                 qpc,
                 frame_time_us,
                 cpu_busy_us: parse_optional_ms(row, self.cpu_busy),
@@ -262,12 +262,18 @@ fn optional_text(row: &StringRecord, index: Option<usize>) -> Option<String> {
     (!value.is_empty() && !value.eq_ignore_ascii_case("NA")).then(|| value.to_owned())
 }
 
-fn parse_swapchain(value: &str) -> u64 {
+fn parse_swapchain(value: &str) -> Result<u64, String> {
     let stripped = value
         .strip_prefix("0x")
         .or_else(|| value.strip_prefix("0X"))
         .unwrap_or(value);
-    u64::from_str_radix(stripped, 16).unwrap_or(0)
+
+    if stripped.is_empty() {
+        return Err("empty SwapChainAddress".to_owned());
+    }
+
+    u64::from_str_radix(stripped, 16)
+        .map_err(|_| format!("invalid SwapChainAddress {value:?}"))
 }
 
 fn validate_candidate(path: PathBuf) -> Result<PathBuf, String> {
@@ -341,6 +347,41 @@ mod tests {
         assert_eq!(parsed.metrics.summary.undisplayed_frames, 1);
         assert!(parsed.gpu_metrics_available);
         assert!(parsed.display_metrics_available);
+    }
+
+    #[test]
+    fn parses_official_v2_style_columns_with_na_display_metrics() {
+        let csv = concat!(
+            "\u{feff}Application,ProcessID,SwapChainAddress,PresentRuntime,SyncInterval,PresentFlags,AllowsTearing,PresentMode,FrameType,CPUStartQPC,FrameTime,CPUBusy,CPUWait,GPULatency,GPUTime,GPUBusy,GPUWait,VideoBusy,DisplayLatency,DisplayedTime,AnimationError,AnimationTime,MsFlipDelay,AllInputToPhotonLatency,ClickToPhotonLatency,InstrumentedLatency\n",
+            "javaw.exe,42,0x2A70D2CAC00,Other,0,0,0,Composed: Flip,Application,2466961521260,11.0804,10.5535,0.5269,1.1731,10.1685,1.5667,8.6018,0.0000,NA,NA,NA,NA,NA,NA,NA,NA\n",
+            "javaw.exe,42,0x2A70D2CAC00,Other,0,0,0,Composed: Flip,Application,2466961632064,11.0437,10.4814,0.5623,0.2612,10.9128,0.5496,10.3632,0.0000,28.1718,16.6267,NA,NA,NA,NA,NA,NA\n"
+        );
+
+        let parsed = parse_presentmon_csv(csv.as_bytes(), 42, 10_000_000, 120)
+            .expect("official-style v2 fixture should parse");
+
+        assert_eq!(parsed.rows_rejected, 0);
+        assert_eq!(parsed.metrics.summary.primary_swapchain, "0x2A70D2CAC00");
+        assert_eq!(parsed.metrics.summary.frames, 2);
+        assert_eq!(parsed.metrics.summary.undisplayed_frames, 1);
+        assert!(parsed.gpu_metrics_available);
+        assert!(parsed.display_metrics_available);
+    }
+
+    #[test]
+    fn rejects_invalid_swapchain_instead_of_merging_it_into_zero() {
+        let csv = concat!(
+            "ProcessID,SwapChainAddress,CPUStartQPC,FrameTime\n",
+            "42,not-a-pointer,1000,10.0\n",
+            "42,0x1,2000,10.0\n"
+        );
+
+        let parsed = parse_presentmon_csv(csv.as_bytes(), 42, 1_000, 120)
+            .expect("fixture should retain the valid row");
+
+        assert_eq!(parsed.rows_rejected, 1);
+        assert_eq!(parsed.metrics.summary.frames, 1);
+        assert_eq!(parsed.metrics.summary.primary_swapchain, "0x1");
     }
 
     #[test]
