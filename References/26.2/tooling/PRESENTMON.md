@@ -28,6 +28,7 @@ Argon Probe P0 currently needs the official PresentMon console CLI to expose:
 --qpc_time
 --v2_metrics
 --no_track_input
+--no_track_gpu
 --timed
 --terminate_after_timed
 --terminate_on_proc_exit
@@ -35,6 +36,8 @@ Argon Probe P0 currently needs the official PresentMon console CLI to expose:
 ```
 
 Probe performs a runtime preflight against `PresentMon --help` and refuses the P0 capture with a concrete missing-option error if this surface is not available.
+
+P0 uses `--no_track_gpu` by default so the base capture requests CPU/display evidence without unconditional GPU-duration tracking. The Probe CLI flag `--track-gpu` removes that suppression for a targeted capture. The actual overhead difference remains a runtime benchmark question; the default is chosen to minimize requested tracing work, not to claim a measured percentage improvement.
 
 This is intentionally capability/surface-based rather than a rule such as:
 

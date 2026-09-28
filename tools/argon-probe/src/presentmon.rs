@@ -1,7 +1,6 @@
 use crate::metrics::{CaptureAccumulator, CaptureMetrics, FrameSample};
 use csv::{ReaderBuilder, StringRecord};
 use std::env;
-use std::ffi::OsStr;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -14,6 +13,7 @@ const REQUIRED_CLI_OPTIONS: &[&str] = &[
     "--qpc_time",
     "--v2_metrics",
     "--no_track_input",
+    "--no_track_gpu",
     "--timed",
     "--terminate_after_timed",
     "--terminate_on_proc_exit",
@@ -30,6 +30,7 @@ pub struct PresentMonCapture {
     pub metrics: CaptureMetrics,
     pub rows_rejected: u64,
     pub exit_code: Option<i32>,
+    pub gpu_tracking_requested: bool,
     pub gpu_metrics_available: bool,
     pub display_metrics_available: bool,
 }
@@ -121,25 +122,33 @@ pub fn capture(
     duration_seconds: u64,
     ring_seconds: u64,
     qpc_frequency_hz: u64,
+    track_gpu: bool,
 ) -> Result<PresentMonCapture, Box<dyn std::error::Error>> {
     let session_name = format!("ArgonProbe-{pid}-{}", unix_millis());
+    let pid_arg = pid.to_string();
+    let duration_arg = duration_seconds.to_string();
 
-    let mut child = Command::new(&backend.path)
-        .args([
-            OsStr::new("--process_id"),
-            OsStr::new(&pid.to_string()),
-            OsStr::new("--output_stdout"),
-            OsStr::new("--no_console_stats"),
-            OsStr::new("--qpc_time"),
-            OsStr::new("--v2_metrics"),
-            OsStr::new("--no_track_input"),
-            OsStr::new("--timed"),
-            OsStr::new(&duration_seconds.to_string()),
-            OsStr::new("--terminate_after_timed"),
-            OsStr::new("--terminate_on_proc_exit"),
-            OsStr::new("--session_name"),
-            OsStr::new(&session_name),
-        ])
+    let mut command = Command::new(&backend.path);
+    command
+        .arg("--process_id")
+        .arg(&pid_arg)
+        .arg("--output_stdout")
+        .arg("--no_console_stats")
+        .arg("--qpc_time")
+        .arg("--v2_metrics")
+        .arg("--no_track_input");
+
+    if !track_gpu {
+        command.arg("--no_track_gpu");
+    }
+
+    let mut child = command
+        .arg("--timed")
+        .arg(&duration_arg)
+        .arg("--terminate_after_timed")
+        .arg("--terminate_on_proc_exit")
+        .arg("--session_name")
+        .arg(&session_name)
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()?;
@@ -155,6 +164,7 @@ pub fn capture(
     Ok(PresentMonCapture {
         metrics: parsed.metrics,
         rows_rejected: parsed.rows_rejected,
+        gpu_tracking_requested: track_gpu,
         exit_code: status.code(),
         gpu_metrics_available: parsed.gpu_metrics_available,
         display_metrics_available: parsed.display_metrics_available,
@@ -394,6 +404,7 @@ PresentMon
 --qpc_time
 --v2_metrics
 --no_track_input
+--no_track_gpu
 --timed
 --terminate_after_timed
 --terminate_on_proc_exit

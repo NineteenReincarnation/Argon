@@ -46,7 +46,17 @@ argon-probe.exe capture `
     --presentmon C:\path\to\PresentMon.exe `
     --duration-seconds 60 `
     --output reports
+
+# Optional diagnostic evidence; disabled by default in P0
+argon-probe.exe capture `
+    --pid <minecraft-pid> `
+    --presentmon C:\path\to\PresentMon.exe `
+    --track-gpu `
+    --duration-seconds 60 `
+    --output reports
 ```
+
+P0 disables PresentMon GPU-duration tracking by default to keep the base capture as small as practical; `--track-gpu` enables it explicitly when GPU timing evidence is needed.
 
 PresentMon is intentionally not vendored into this repository. P0 accepts an official PresentMon console executable via `--presentmon`, `ARGON_PROBE_PRESENTMON`, the Probe executable directory, or `PATH`.
 

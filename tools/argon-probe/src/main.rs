@@ -29,6 +29,10 @@ enum Commands {
         #[arg(long)]
         presentmon: Option<PathBuf>,
 
+        /// Enable PresentMon GPU-duration tracking. P0 keeps this off by default to minimize observer work.
+        #[arg(long)]
+        track_gpu: bool,
+
         /// Capture duration in seconds. P0 intentionally uses bounded timed captures.
         #[arg(long, default_value_t = 60)]
         duration_seconds: u64,
@@ -58,10 +62,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Capture {
             pid,
             presentmon,
+            track_gpu,
             duration_seconds,
             ring_seconds,
             output,
-        } => capture(pid, presentmon, duration_seconds, ring_seconds, output),
+        } => capture(
+            pid,
+            presentmon,
+            track_gpu,
+            duration_seconds,
+            ring_seconds,
+            output,
+        ),
     }
 }
 
@@ -90,6 +102,7 @@ fn list_candidates() -> Result<(), Box<dyn std::error::Error>> {
 fn capture(
     pid: Option<u32>,
     presentmon_override: Option<PathBuf>,
+    track_gpu: bool,
     duration_seconds: u64,
     ring_seconds: u64,
     output: PathBuf,
@@ -125,6 +138,10 @@ fn capture(
     if let Some(version) = &presentmon.version {
         println!("PresentMon identity: {version}");
     }
+    println!(
+        "PresentMon GPU tracking: {}",
+        if track_gpu { "enabled" } else { "disabled" }
+    );
 
     let capture = presentmon::capture(
         &presentmon,
@@ -132,6 +149,7 @@ fn capture(
         duration_seconds,
         ring_seconds,
         qpc_anchor.frequency_hz,
+        track_gpu,
     )?;
 
     let capabilities = report::capability_snapshot(&presentmon, &capture, qpc_anchor);

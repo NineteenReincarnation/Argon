@@ -29,6 +29,7 @@ pub struct CapabilitySnapshot {
     pub qpc: bool,
     pub qpc_frequency_hz: Option<u64>,
     pub presentmon: BackendCapability,
+    pub presentmon_gpu_tracking_requested: bool,
     pub presentmon_gpu_metrics: bool,
     pub presentmon_display_metrics: bool,
     pub jfr: bool,
@@ -130,6 +131,12 @@ pub fn quality_snapshot(capture: &PresentMonCapture) -> QualitySnapshot {
                 .to_owned(),
         );
     }
+    if capture.gpu_tracking_requested && !capture.gpu_metrics_available {
+        notes.push(
+            "GPU tracking was requested, but PresentMon did not expose the expected GPU timing columns"
+                .to_owned(),
+        );
+    }
     if !capture.display_metrics_available {
         notes.push(
             "PresentMon did not expose DisplayedTime; display-side timing is omitted rather than treated as dropped frames"
@@ -149,6 +156,7 @@ pub fn quality_snapshot(capture: &PresentMonCapture) -> QualitySnapshot {
     } else if capture.rows_rejected > 0
         || summary.primary_frame_share < 0.80
         || summary.frames < 300
+        || (capture.gpu_tracking_requested && !capture.gpu_metrics_available)
     {
         "DEGRADED"
     } else {
@@ -187,6 +195,7 @@ pub fn capability_snapshot(
             cli_contract: Some("presentmon-console-v2-qpc"),
             cli_contract_verified: true,
         },
+        presentmon_gpu_tracking_requested: capture.gpu_tracking_requested,
         presentmon_gpu_metrics: capture.gpu_metrics_available,
         presentmon_display_metrics: capture.display_metrics_available,
         jfr: false,
@@ -365,6 +374,7 @@ mod tests {
                 cli_contract: Some("presentmon-console-v2-qpc"),
                 cli_contract_verified: true,
             },
+            presentmon_gpu_tracking_requested: true,
             presentmon_gpu_metrics: true,
             presentmon_display_metrics: true,
             jfr: false,
