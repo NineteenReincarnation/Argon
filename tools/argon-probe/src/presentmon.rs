@@ -272,8 +272,7 @@ fn parse_swapchain(value: &str) -> Result<u64, String> {
         return Err("empty SwapChainAddress".to_owned());
     }
 
-    u64::from_str_radix(stripped, 16)
-        .map_err(|_| format!("invalid SwapChainAddress {value:?}"))
+    u64::from_str_radix(stripped, 16).map_err(|_| format!("invalid SwapChainAddress {value:?}"))
 }
 
 fn validate_candidate(path: PathBuf) -> Result<PathBuf, String> {
