@@ -36,7 +36,8 @@ Target: Minecraft 26.2 / Fabric
 
 - Extend Argon Probe P0 capture quality with PresentMon ETW loss diagnostics, including final stderr warning parsing without storing raw stderr.
 - Avoid enabling PresentMon `--track_etw_status` in the stdout-CSV path because the audited upstream implementation emits periodic non-CSV status text to stdout.
-- Stage Probe reports to a temporary ZIP, flush them, reopen and validate required JSON/CSV structure, then atomically publish the final report.\n\n### Validation
+- Stage Probe reports to a temporary ZIP, flush them, reopen and validate required JSON/CSV structure, then atomically publish the final report.
+- Record Argon Probe's own capture-window CPU time, start/end memory samples, sampled memory high-water values, and process I/O deltas without making footprint collection a hard dependency of frame capture.\n\n### Validation
 
 - CI compile validation: complete.
 - CI package-content validation: complete.
