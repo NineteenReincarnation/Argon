@@ -7,7 +7,7 @@
 
 ## Current implementation status
 
-Phase P0 now has an initial implementation on `dev/26.2/argon-probe`.
+Phase P0 has an initial implementation integrated directly into `main`.
 
 Implemented and CI-verified:
 
