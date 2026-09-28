@@ -385,6 +385,43 @@ Deep may have materially higher overhead and is never used to establish final pe
 
 An initial acceptable engineering envelope can be 2–5% overhead for short targeted captures, but the actual value must be measured and reported.
 
+### 5.4 Session lifecycle
+
+Probe should make collection state explicit rather than treating the whole process lifetime as one homogeneous benchmark window.
+
+Initial lifecycle:
+
+```text
+IDLE
+  ↓
+TARGET_DISCOVERY
+  ↓
+CAPABILITY_NEGOTIATION
+  ↓
+STARTING
+  ↓
+WARMUP
+  ↓
+STEADY
+  ↓
+FINALIZING
+  ↓
+COMPLETE / CRASHED / DEGRADED
+```
+
+Meaning:
+
+- `TARGET_DISCOVERY` selects the Minecraft JVM and must not silently attach to an unrelated Java process.
+- `CAPABILITY_NEGOTIATION` records which collectors and optional metrics are actually available.
+- `STARTING` covers collector startup and target initialization.
+- `WARMUP` is excluded from steady-state incident conclusions unless a test explicitly targets startup/load behavior.
+- `STEADY` is the normal Scout/Bench evidence window.
+- `FINALIZING` performs delayed report I/O, hashes, redaction, and packaging after timing-sensitive collection has ended.
+- `CRASHED` describes target-process failure; Probe failure is tracked separately and must not be misreported as a Minecraft crash.
+- `DEGRADED` means the session produced usable partial evidence but one or more requested capabilities failed or lost data.
+
+The lifecycle is a data-quality boundary, not a reason to build a large state-machine framework before the implementation needs it.
+
 ---
 
 ## 6. Collector strategy
@@ -726,6 +763,21 @@ If a profile does not match:
 profile = skipped
 generic capture = continues
 ```
+
+### 10.1 Profile validation state
+
+A Diagnostic Profile has its own validation status. Parsing a profile is not equivalent to proving that it works in a real Minecraft session.
+
+Track, where applicable:
+
+```text
+schema verified
+surface verified
+runtime verified
+overhead verified
+```
+
+For example, a profile may be schema- and surface-verified while still lacking runtime evidence. If a profile enables stronger collection, its extra observer cost must be validated separately before it is treated as overhead-verified.
 
 Minecraft-version-specific knowledge remains isolated:
 
@@ -1412,6 +1464,16 @@ Candidate checks:
 - unsupported capability fallback tests;
 - unknown profile compatibility;
 - packaged artifact verification.
+
+### Argon integration boundary
+
+CI should also protect the separation between the tool and the mod:
+
+- Argon Fabric build must not require the Probe executable or Rust toolchain.
+- Probe build must not become a Fabric Loader dependency.
+- Probe profile failure must not prevent creation or loading of the Argon JAR.
+- Probe-specific dependencies must stay under `tools/argon-probe/` unless a separately justified shared boundary appears.
+- A future Deep Agent must remain outside the normal Argon release JAR.
 
 CI must not claim:
 
