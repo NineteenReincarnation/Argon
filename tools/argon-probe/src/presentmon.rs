@@ -434,7 +434,11 @@ fn max_optional(current: Option<u64>, next: Option<u64>) -> Option<u64> {
     }
 }
 
-fn quality_counter(available: bool, sampled: Option<u64>, final_warning: Option<u64>) -> Option<u64> {
+fn quality_counter(
+    available: bool,
+    sampled: Option<u64>,
+    final_warning: Option<u64>,
+) -> Option<u64> {
     if available {
         Some(max_optional(sampled, final_warning).unwrap_or(0))
     } else {
