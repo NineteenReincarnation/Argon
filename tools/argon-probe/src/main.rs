@@ -167,6 +167,16 @@ fn capture(
     let summary = &capture.metrics.summary;
     println!();
     println!("Capture quality: {}", quality.capture_quality);
+    if quality.etw_loss_detection_available {
+        println!(
+            "ETW loss: events={} buffers={} overflowed_presents={}",
+            quality.etw_events_lost.unwrap_or(0),
+            quality.etw_buffers_lost.unwrap_or(0),
+            quality.overflowed_presents.unwrap_or(0)
+        );
+    } else {
+        println!("ETW loss: unavailable");
+    }
     println!("Primary stream: {}", summary.primary_swapchain);
     println!("Frames: {}", summary.frames);
     println!(
