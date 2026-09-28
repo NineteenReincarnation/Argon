@@ -174,7 +174,6 @@ impl CaptureAccumulator {
             recent_frames,
         })
     }
-
 }
 
 impl StreamState {
