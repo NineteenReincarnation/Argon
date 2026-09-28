@@ -26,6 +26,8 @@ Implemented and CI-verified:
 - final stderr warning parsing for ETW events lost, ETW buffers lost, and overflowed present events;
 - optional ETW quality-column parsing when those columns are present;
 - automatic quality downgrade when ETW loss evidence is unavailable or non-zero;
+- Probe self-footprint evidence for the PresentMon capture window: accumulated CPU time, start/end resident and virtual memory, two-sample memory high-water values, and read/write byte deltas;
+- footprint collection fails independently: unavailable self-cost metadata does not discard otherwise usable frame evidence;
 - report ZIP staging, flush, reopen/structure validation, and atomic publication;
 - report-entry round-trip tests;
 - Windows CLI smoke tests.
@@ -38,6 +40,8 @@ Not yet verified:
 - real-world validation that PresentMon final ETW-loss diagnostics behave as expected for Minecraft/OpenGL;
 - Probe OFF/ON measurement overhead;
 - any ≤0.5% or ≤1% overhead target.
+
+The footprint memory high-water fields are explicitly based on the start/end samples only; they are not presented as true process peak memory.
 
 P0 therefore remains **compile/package/test verified only**, not runtime or overhead-benchmark verified.
 
