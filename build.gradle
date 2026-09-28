@@ -33,6 +33,10 @@ def phaseBEnabled = providers.gradleProperty("argon_phase_b")
     .map { it.toBoolean() }
     .orElse(false)
 
+def phaseBSimulationEnabled = providers.gradleProperty("argon_phase_b_simulate")
+    .map { it.toBoolean() }
+    .orElse(false)
+
 def instrumentationEnabled = providers.gradleProperty("argon_instrumentation")
     .map { it.toBoolean() }
     .orElse(true)
@@ -57,6 +61,10 @@ loom {
 
             if (phaseBEnabled.get()) {
                 vmArg "-Dargon.experimental.irisUniformEvaluation=true"
+            }
+
+            if (phaseBSimulationEnabled.get()) {
+                vmArg "-Dargon.instrumentation.irisUniformEvaluationSimulation=true"
             }
 
             if (!instrumentationEnabled.get()) {

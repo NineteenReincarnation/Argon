@@ -35,9 +35,10 @@ public final class ArgonClient implements ClientModInitializer {
         );
 
         Argon.LOGGER.info(
-            "Iris uniform Phase B evaluation caching: requested={}, active={}.",
+            "Iris uniform Phase B evaluation planning: applyRequested={}, simulationRequested={}, mode={}.",
             IrisUniformEvaluationPlanner.isRequested(),
-            IrisUniformEvaluationPlanner.isEnabled()
+            IrisUniformEvaluationPlanner.isSimulationRequested(),
+            IrisUniformEvaluationPlanner.modeName()
         );
     }
 }

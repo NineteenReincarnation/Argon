@@ -224,3 +224,23 @@ Iris 1.11.4 -> Sodium 0.9.2
 ```
 
 The default remains Iris 1.11.4 + Sodium 0.9.2.
+
+
+## Phase B simulation before apply
+
+Run the non-invasive Phase B simulation before the behavior-changing Phase B switch:
+
+```powershell
+.\scripts\run-phase0.ps1 -SimulatePhaseB
+```
+
+The game still executes Iris' original expression evaluation. Argon only records which pure candidates would have been skipped.
+
+The analyzer reports:
+
+```text
+Phase B simulated opportunity
+Phase B simulation mismatches
+```
+
+A non-zero mismatch is a blocker for Phase B apply mode and must be investigated before any performance test or default enablement.

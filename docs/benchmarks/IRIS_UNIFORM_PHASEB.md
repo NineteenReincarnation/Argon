@@ -84,3 +84,23 @@ phaseBEval/frame
 ```
 
 and the CSV stores the same values. The local analyzer reports the frame-weighted Phase B candidate skip ratio.
+
+
+## Simulation-only validation
+
+Before enabling behavior-changing evaluation skipping, Argon can run the same dependency-revision decision in **SIMULATE** mode:
+
+```powershell
+.\scripts\run-phase0.ps1 -SimulatePhaseB
+```
+
+Simulation mode never cancels Iris' `CachedUniform.update()`. It records when a pure candidate would have been skipped, then allows Iris to evaluate it normally.
+
+After that real evaluation, Argon compares the candidate's revision with its pre-evaluation revision. If the value changed despite all tracked dependency revisions being unchanged, the simulation records a mismatch and disables Phase B planning for the rest of the session.
+
+A clean simulation therefore gives two useful measurements without changing shader-visible behavior:
+
+- theoretical Phase B skip opportunity;
+- zero/non-zero classification/dependency mismatches.
+
+Simulation is diagnostic and cannot be combined with performance mode.

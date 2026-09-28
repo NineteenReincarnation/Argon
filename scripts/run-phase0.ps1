@@ -3,11 +3,20 @@ param(
     [string]$IrisVersion = "1.11.4",
     [switch]$EnablePhaseA,
     [switch]$EnablePhaseB,
+    [switch]$SimulatePhaseB,
     [switch]$PerformanceMode,
     [switch]$Jfr
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($EnablePhaseB -and $SimulatePhaseB) {
+    throw "Choose either -EnablePhaseB or -SimulatePhaseB, not both."
+}
+
+if ($SimulatePhaseB -and $PerformanceMode) {
+    throw "-SimulatePhaseB is a diagnostic mode and cannot be combined with -PerformanceMode."
+}
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
@@ -89,9 +98,12 @@ if ($EnablePhaseA) {
 
 if ($EnablePhaseB) {
     $GradleArgs += "-Pargon_phase_b=true"
-    Write-Host "Experimental Phase B uniform evaluation caching: ENABLED"
+    Write-Host "Experimental Phase B uniform evaluation caching: APPLY"
+} elseif ($SimulatePhaseB) {
+    $GradleArgs += "-Pargon_phase_b_simulate=true"
+    Write-Host "Experimental Phase B uniform evaluation caching: SIMULATE ONLY"
 } else {
-    Write-Host "Experimental Phase B uniform evaluation caching: disabled"
+    Write-Host "Experimental Phase B uniform evaluation caching: OFF"
 }
 
 if ($PerformanceMode) {
@@ -108,7 +120,11 @@ if ($Jfr) {
     New-Item -ItemType Directory -Force -Path $JfrDir | Out-Null
 
     $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $Mode = if ($EnablePhaseA) { "phase-a" } else { "baseline" }
+    $ModeParts = @()
+    if ($EnablePhaseA) { $ModeParts += "phase-a" }
+    if ($EnablePhaseB) { $ModeParts += "phase-b" }
+    if ($SimulatePhaseB) { $ModeParts += "phase-b-sim" }
+    $Mode = if ($ModeParts.Count -gt 0) { $ModeParts -join "-" } else { "baseline" }
     $JfrName = "$Mode-iris-$IrisVersion-$Stamp.jfr"
     $JfrRelativePath = "argon/jfr/$JfrName"
     $JfrAbsolutePath = Join-Path $JfrDir $JfrName
@@ -128,7 +144,7 @@ if (Test-Path $LatestLog) {
         "Argon client baseline:",
         "Iris uniform Phase 0 instrumentation:",
         "Iris uniform Phase A deduplication:",
-        "Iris uniform Phase B evaluation caching:",
+        "Iris uniform Phase B evaluation planning:",
         "[Phase B][Iris uniforms]",
         "Enabling Minecraft 26.2 Iris Phase 0 integration",
         "[Phase 0][Iris uniforms]",

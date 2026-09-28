@@ -32,7 +32,7 @@ Target: Minecraft 26.2 / Fabric
 
 - Update the Minecraft 26.2 development baseline to Fabric API 0.161.0+26.2.
 
-### Validation
+- Add a simulation-only Phase B mode that measures cache opportunity without skipping Iris evaluation and detects dependency/classification mismatches.\n\n### Validation
 
 - CI compile validation: complete.
 - CI package-content validation: complete.

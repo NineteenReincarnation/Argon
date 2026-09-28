@@ -11,8 +11,13 @@ import java.util.List;
 import java.util.Map;
 
 public final class IrisUniformEvaluationPlanner {
-    private static final boolean REQUESTED =
+    private static final boolean APPLY_REQUESTED =
         Boolean.parseBoolean(System.getProperty("argon.experimental.irisUniformEvaluation", "false"));
+
+    private static final boolean SIMULATION_REQUESTED =
+        Boolean.parseBoolean(
+            System.getProperty("argon.instrumentation.irisUniformEvaluationSimulation", "false")
+        );
 
     private static final boolean COMPATIBLE =
         CompatibilityBaseline26_2.isMinecraftTarget()
@@ -28,11 +33,23 @@ public final class IrisUniformEvaluationPlanner {
     }
 
     public static boolean isRequested() {
-        return REQUESTED;
+        return APPLY_REQUESTED;
+    }
+
+    public static boolean isSimulationRequested() {
+        return SIMULATION_REQUESTED;
     }
 
     public static boolean isEnabled() {
-        return REQUESTED && COMPATIBLE && operational;
+        return mode() == Mode.APPLY;
+    }
+
+    public static boolean isSimulationEnabled() {
+        return mode() == Mode.SIMULATE;
+    }
+
+    public static String modeName() {
+        return mode().name();
     }
 
     public static void onPipelineReset() {
@@ -47,7 +64,7 @@ public final class IrisUniformEvaluationPlanner {
     ) {
         CANDIDATES.clear();
 
-        if (!isEnabled()) {
+        if (mode() == Mode.OFF) {
             return;
         }
 
@@ -89,7 +106,8 @@ public final class IrisUniformEvaluationPlanner {
             }
 
             Argon.LOGGER.info(
-                "[Phase B][Iris uniforms] Evaluation plan: pureCandidates={}, stateful={}, nondeterministic={}, unknown={}.",
+                "[Phase B][Iris uniforms] Evaluation plan: mode={}, pureCandidates={}, stateful={}, nondeterministic={}, unknown={}.",
+                modeName(),
                 pure,
                 stateful,
                 nondeterministic,
@@ -101,7 +119,8 @@ public final class IrisUniformEvaluationPlanner {
     }
 
     public static boolean shouldSkip(Object uniform) {
-        if (!isEnabled()) {
+        Mode mode = mode();
+        if (mode == Mode.OFF) {
             return false;
         }
 
@@ -128,18 +147,55 @@ public final class IrisUniformEvaluationPlanner {
             }
         }
 
+        if (mode == Mode.SIMULATE) {
+            if (!(uniform instanceof IrisUniformDeduplicator.UniformState revisionState)) {
+                disableForSession(
+                    "A Phase B candidate did not expose Argon's revision state.",
+                    null
+                );
+                return false;
+            }
+
+            state.simulationExpectedStable = true;
+            state.simulationRevisionBefore = revisionState.argon$revision();
+            IrisUniformInstrumentation.onPhaseBSimulatedSkip();
+            return false;
+        }
+
         IrisUniformInstrumentation.onPhaseBEvaluationSkip();
         return true;
     }
 
     public static void onEvaluated(Object uniform) {
-        if (!isEnabled()) {
+        Mode mode = mode();
+        if (mode == Mode.OFF) {
             return;
         }
 
         CandidateState state = CANDIDATES.get(uniform);
         if (state == null) {
             return;
+        }
+
+        if (mode == Mode.SIMULATE && state.simulationExpectedStable) {
+            state.simulationExpectedStable = false;
+
+            if (!(uniform instanceof IrisUniformDeduplicator.UniformState revisionState)) {
+                disableForSession(
+                    "A simulated Phase B candidate did not expose Argon's revision state.",
+                    null
+                );
+                return;
+            }
+
+            if (revisionState.argon$revision() != state.simulationRevisionBefore) {
+                IrisUniformInstrumentation.onPhaseBSimulationMismatch();
+                disableForSession(
+                    "A simulated skip changed the candidate value despite unchanged dependency revisions.",
+                    null
+                );
+                return;
+            }
         }
 
         Object[] dependencies = state.dependencies;
@@ -160,6 +216,22 @@ public final class IrisUniformEvaluationPlanner {
 
         state.initialized = true;
         IrisUniformInstrumentation.onPhaseBCandidateEvaluation();
+    }
+
+    private static Mode mode() {
+        if (!COMPATIBLE || !operational) {
+            return Mode.OFF;
+        }
+
+        if (APPLY_REQUESTED) {
+            return Mode.APPLY;
+        }
+
+        if (SIMULATION_REQUESTED) {
+            return Mode.SIMULATE;
+        }
+
+        return Mode.OFF;
     }
 
     private static Classification classify(Object expression, ReflectionModel model)
@@ -187,8 +259,6 @@ public final class IrisUniformEvaluationPlanner {
             }
 
             if (functionName == null) {
-                // Dynamic functions are conservatively unknown unless Iris marks
-                // them impure above (e.g. smooth).
                 return Classification.UNKNOWN;
             }
 
@@ -206,8 +276,6 @@ public final class IrisUniformEvaluationPlanner {
         }
 
         if (model.variableExpressionClass.isInstance(expression)) {
-            // Variable safety is determined from the revision-tracked dependency
-            // graph built by Iris, not from update-frequency labels.
             return Classification.PURE;
         }
 
@@ -282,16 +350,22 @@ public final class IrisUniformEvaluationPlanner {
 
         if (cause == null) {
             Argon.LOGGER.error(
-                "Disabling experimental Iris uniform evaluation caching for this session: {}",
+                "Disabling Iris uniform evaluation planning for this session: {}",
                 reason
             );
         } else {
             Argon.LOGGER.error(
-                "Disabling experimental Iris uniform evaluation caching for this session: {}",
+                "Disabling Iris uniform evaluation planning for this session: {}",
                 reason,
                 cause
             );
         }
+    }
+
+    private enum Mode {
+        OFF,
+        SIMULATE,
+        APPLY
     }
 
     private enum Classification {
@@ -321,6 +395,8 @@ public final class IrisUniformEvaluationPlanner {
         private final Object[] dependencies;
         private final long[] dependencyRevisions;
         private boolean initialized;
+        private boolean simulationExpectedStable;
+        private long simulationRevisionBefore;
 
         private CandidateState(Object[] dependencies) {
             this.dependencies = dependencies;

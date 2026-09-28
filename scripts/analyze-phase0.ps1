@@ -14,16 +14,18 @@ if ($Rows.Count -eq 0) {
     throw "Phase 0 CSV contains no measurement rows: $CsvPath"
 }
 
-function Get-PhaseAMode($Row) {
-    if ($null -eq $Row.phase_a_enabled -or $Row.phase_a_enabled -eq "") {
-        return "unknown"
+function Get-RunMode($Row) {
+    $PhaseA = "UNKNOWN"
+    if ($null -ne $Row.phase_a_enabled -and $Row.phase_a_enabled -ne "") {
+        $PhaseA = if ($Row.phase_a_enabled.ToString().ToLowerInvariant() -eq "true") { "ON" } else { "OFF" }
     }
 
-    if ($Row.phase_a_enabled.ToString().ToLowerInvariant() -eq "true") {
-        return "ON"
+    $PhaseB = "UNKNOWN"
+    if ($null -ne $Row.phase_b_mode -and $Row.phase_b_mode -ne "") {
+        $PhaseB = $Row.phase_b_mode.ToString().ToUpperInvariant()
     }
 
-    return "OFF"
+    return "Phase A=$PhaseA | Phase B=$PhaseB"
 }
 
 function Write-Summary($InputRows, [string]$ModeLabel) {
@@ -47,7 +49,9 @@ function Write-Summary($InputRows, [string]$ModeLabel) {
     $PhaseAIncrementalScans = 0.0
     $PhaseAFullScans = 0.0
     $PhaseBEvaluationSkips = 0.0
+    $PhaseBSimulatedSkips = 0.0
     $PhaseBCandidateEvaluations = 0.0
+    $PhaseBSimulationMismatches = 0.0
     $WeightedUpdateUs = 0.0
     $WeightedPushUs = 0.0
 
@@ -74,7 +78,13 @@ function Write-Summary($InputRows, [string]$ModeLabel) {
         $PhaseAIncrementalScans += [double]$Row.phase_a_incremental_scans_per_frame * $Frames
         $PhaseAFullScans += [double]$Row.phase_a_full_scans_per_frame * $Frames
         $PhaseBEvaluationSkips += [double]$Row.phase_b_evaluation_skips_per_frame * $Frames
+        if ($null -ne $Row.phase_b_simulated_skips_per_frame -and $Row.phase_b_simulated_skips_per_frame -ne "") {
+            $PhaseBSimulatedSkips += [double]$Row.phase_b_simulated_skips_per_frame * $Frames
+        }
         $PhaseBCandidateEvaluations += [double]$Row.phase_b_candidate_evaluations_per_frame * $Frames
+        if ($null -ne $Row.phase_b_simulation_mismatches -and $Row.phase_b_simulation_mismatches -ne "") {
+            $PhaseBSimulationMismatches += [double]$Row.phase_b_simulation_mismatches
+        }
 
         $WeightedUpdateUs += [double]$Row.instrumented_update_us_per_frame * $Frames
         $WeightedPushUs += [double]$Row.instrumented_push_us_per_frame * $Frames
@@ -103,8 +113,8 @@ function Write-Summary($InputRows, [string]$ModeLabel) {
     $PipelineGenerations = $RowsForMode.pipeline_generation | Sort-Object -Unique
 
     Write-Output ""
-    Write-Output "Phase A: $ModeLabel"
-    Write-Output ("-" * (9 + $ModeLabel.Length))
+    Write-Output "Mode: $ModeLabel"
+    Write-Output ("-" * (6 + $ModeLabel.Length))
     Write-Output "Windows: $($RowsForMode.Count)"
     Write-Output ("Frames: {0:N0}" -f $TotalFrames)
     Write-Output "Pipeline generations: $($PipelineGenerations -join ', ')"
@@ -126,9 +136,12 @@ function Write-Summary($InputRows, [string]$ModeLabel) {
     Write-Output ("Phase A fast skips/frame:       {0:N3}" -f (PerFrame $PhaseAFastPathSkips))
     Write-Output ("Phase A incremental/frame:      {0:N3}" -f (PerFrame $PhaseAIncrementalScans))
     Write-Output ("Phase A full scans/frame:       {0:N3}" -f (PerFrame $PhaseAFullScans))
-    Write-Output ("Phase B skips/frame:            {0:N3}" -f (PerFrame $PhaseBEvaluationSkips))
+    Write-Output ("Phase B applied skips/frame:    {0:N3}" -f (PerFrame $PhaseBEvaluationSkips))
+    Write-Output ("Phase B simulated skips/frame:  {0:N3}" -f (PerFrame $PhaseBSimulatedSkips))
     Write-Output ("Phase B candidate evals/frame:  {0:N3}" -f (PerFrame $PhaseBCandidateEvaluations))
-    Write-Output ("Phase B skip ratio:             {0:N3}%" -f (Percent $PhaseBEvaluationSkips ($PhaseBEvaluationSkips + $PhaseBCandidateEvaluations)))
+    Write-Output ("Phase B applied skip ratio:     {0:N3}%" -f (Percent $PhaseBEvaluationSkips ($PhaseBEvaluationSkips + $PhaseBCandidateEvaluations)))
+    Write-Output ("Phase B simulated opportunity:  {0:N3}%" -f (Percent $PhaseBSimulatedSkips $PhaseBCandidateEvaluations))
+    Write-Output ("Phase B simulation mismatches:  {0:N0}" -f $PhaseBSimulationMismatches)
     Write-Output ""
     Write-Output ("Instrumented update us/frame:   {0:N3}" -f (PerFrame $WeightedUpdateUs))
     Write-Output ("Instrumented push us/frame:     {0:N3}" -f (PerFrame $WeightedPushUs))
@@ -139,7 +152,7 @@ Write-Output "Argon Iris Uniform Phase 0 Summary"
 Write-Output "=================================="
 Write-Output "CSV: $CsvPath"
 
-$Groups = $Rows | Group-Object { Get-PhaseAMode $_ }
+$Groups = $Rows | Group-Object { Get-RunMode $_ }
 
 foreach ($Group in $Groups | Sort-Object Name) {
     Write-Summary -InputRows $Group.Group -ModeLabel $Group.Name
