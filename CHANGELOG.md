@@ -1,6 +1,6 @@
 # Changelog
 
-Argon follows semantic versioning for the mod release line and records the Minecraft target in build metadata.
+Argon uses the project-specific `X.Y.Z+<minecraft-version>` scheme: X is the major content version, Y is the release line, Z is the development iteration, and the suffix records the Minecraft target.
 
 ## Unreleased — Minecraft 26.2
 
