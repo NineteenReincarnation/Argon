@@ -1,3 +1,4 @@
+use crate::footprint::ProbeFootprint;
 use crate::metrics::{CaptureMetrics, FrameSample, FrameSummary, QpcAnchor};
 use crate::presentmon::{PresentMonBackend, PresentMonCapture};
 use crate::process::TargetProcess;
@@ -68,6 +69,7 @@ pub struct QualitySnapshot {
     pub etw_buffers_lost: Option<u64>,
     pub overflowed_presents: Option<u64>,
     pub presentmon_exit_code: Option<i32>,
+    pub probe_footprint: Option<ProbeFootprint>,
     pub notes: Vec<String>,
 }
 
@@ -117,7 +119,10 @@ pub fn environment_snapshot(target: &TargetProcess) -> EnvironmentSnapshot {
     }
 }
 
-pub fn quality_snapshot(capture: &PresentMonCapture) -> QualitySnapshot {
+pub fn quality_snapshot(
+    capture: &PresentMonCapture,
+    probe_footprint: Option<ProbeFootprint>,
+) -> QualitySnapshot {
     let summary = &capture.metrics.summary;
     let mut notes = Vec::new();
 
@@ -186,6 +191,12 @@ pub fn quality_snapshot(capture: &PresentMonCapture) -> QualitySnapshot {
             capture.overflowed_presents.unwrap_or(0)
         ));
     }
+    if probe_footprint.is_none() {
+        notes.push(
+            "Probe resource footprint sampling was unavailable; frame evidence remains usable, but Probe self-cost metadata is incomplete"
+                .to_owned(),
+        );
+    }
 
     let exit_failed = capture.exit_code.is_some_and(|code| code != 0);
     let trace_loss = capture.etw_events_lost.unwrap_or(0) > 0
@@ -217,6 +228,7 @@ pub fn quality_snapshot(capture: &PresentMonCapture) -> QualitySnapshot {
         etw_buffers_lost: capture.etw_buffers_lost,
         overflowed_presents: capture.overflowed_presents,
         presentmon_exit_code: capture.exit_code,
+        probe_footprint,
         notes,
     }
 }
@@ -469,16 +481,16 @@ mod tests {
             overflowed_presents: None,
         };
 
-        assert_eq!(quality_snapshot(&capture).capture_quality, "DEGRADED");
+        assert_eq!(quality_snapshot(&capture, None).capture_quality, "DEGRADED");
 
         capture.etw_status_available = true;
         capture.etw_events_lost = Some(0);
         capture.etw_buffers_lost = Some(0);
         capture.overflowed_presents = Some(0);
-        assert_eq!(quality_snapshot(&capture).capture_quality, "GOOD");
+        assert_eq!(quality_snapshot(&capture, None).capture_quality, "GOOD");
 
         capture.etw_events_lost = Some(1);
-        let degraded = quality_snapshot(&capture);
+        let degraded = quality_snapshot(&capture, None);
         assert_eq!(degraded.capture_quality, "DEGRADED");
         assert!(
             degraded
@@ -560,6 +572,18 @@ mod tests {
             etw_buffers_lost: Some(0),
             overflowed_presents: Some(0),
             presentmon_exit_code: Some(0),
+            probe_footprint: Some(ProbeFootprint {
+                measurement_scope: "presentmon_capture_window",
+                cpu_time_ms: 10,
+                resident_memory_start_bytes: 10_000,
+                resident_memory_end_bytes: 12_000,
+                resident_memory_sampled_high_water_bytes: 12_000,
+                virtual_memory_start_bytes: 30_000,
+                virtual_memory_end_bytes: 32_000,
+                virtual_memory_sampled_high_water_bytes: 32_000,
+                read_bytes: 100,
+                written_bytes: 200,
+            }),
             notes: Vec::new(),
         };
 
@@ -611,6 +635,19 @@ mod tests {
                 .is_some()
         );
         assert!(summary_json["frames"].get("average_frame_ms").is_none());
+
+        let mut quality_entry = archive.by_name("quality.json").expect("quality entry");
+        let mut quality_bytes = Vec::new();
+        quality_entry
+            .read_to_end(&mut quality_bytes)
+            .expect("quality should read");
+        let quality_json: serde_json::Value =
+            serde_json::from_slice(&quality_bytes).expect("quality JSON");
+        assert_eq!(
+            quality_json["probe_footprint"]["measurement_scope"],
+            "presentmon_capture_window"
+        );
+        assert_eq!(quality_json["probe_footprint"]["cpu_time_ms"], 10);
 
         fs::remove_dir_all(directory).ok();
     }
