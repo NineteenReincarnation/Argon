@@ -16,11 +16,19 @@ The project currently has **compile, package, and structure validation** through
 
 See [docs/VALIDATION_STATUS.md](docs/VALIDATION_STATUS.md).
 
-## Version isolation
+## Version management
 
-Git development uses `main` as the single active development line. Minecraft-version isolation is enforced in the repository layout rather than through long-lived version branches.
+Argon develops directly on `main` and uses the project version number to track release progression.
 
-Version-sensitive integration code uses explicit packages such as `mc26_2`; reference sources use `References/26.2/`. A future Minecraft version should receive sibling version packages/directories rather than accumulating broad version conditionals inside the existing implementation.
+Current version format:
+
+```text
+X.Y.Z+<minecraft-version>
+```
+
+For the current line, `X` is the major content version, `Y` is the release line, and `Z` is the development iteration. The Minecraft suffix identifies the target game version and does not replace Argon's own release numbering.
+
+Version-sensitive compatibility code may still keep explicit boundaries where required by upstream API or bytecode differences.
 
 ## Goals
 
