@@ -1,3 +1,4 @@
+mod footprint;
 mod metrics;
 mod presentmon;
 mod process;
@@ -143,6 +144,8 @@ fn capture(
         if track_gpu { "enabled" } else { "disabled" }
     );
 
+    let footprint_tracker = footprint::ProbeFootprintTracker::start();
+
     let capture = presentmon::capture(
         &presentmon,
         target.pid,
@@ -152,8 +155,22 @@ fn capture(
         track_gpu,
     )?;
 
+    let probe_footprint = match footprint_tracker {
+        Ok(tracker) => match tracker.finish() {
+            Ok(footprint) => Some(footprint),
+            Err(error) => {
+                eprintln!("argon-probe: resource footprint finalization unavailable: {error}");
+                None
+            }
+        },
+        Err(error) => {
+            eprintln!("argon-probe: resource footprint sampling unavailable: {error}");
+            None
+        }
+    };
+
     let capabilities = report::capability_snapshot(&presentmon, &capture, qpc_anchor);
-    let quality = report::quality_snapshot(&capture);
+    let quality = report::quality_snapshot(&capture, probe_footprint);
     let report_path = report::write_report(
         &output,
         started_unix_ms,
@@ -176,6 +193,18 @@ fn capture(
         );
     } else {
         println!("ETW loss: unavailable");
+    }
+    if let Some(footprint) = &quality.probe_footprint {
+        println!(
+            "Probe footprint: cpu={} ms rss_start={} MiB rss_end={} MiB read={} KiB written={} KiB",
+            footprint.cpu_time_ms,
+            footprint.resident_memory_start_bytes / (1024 * 1024),
+            footprint.resident_memory_end_bytes / (1024 * 1024),
+            footprint.read_bytes / 1024,
+            footprint.written_bytes / 1024
+        );
+    } else {
+        println!("Probe footprint: unavailable");
     }
     println!("Primary stream: {}", summary.primary_swapchain);
     println!("Frames: {}", summary.frames);
