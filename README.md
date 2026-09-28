@@ -6,11 +6,7 @@ Argon is a modular performance optimization mod for **Minecraft Java Edition 26.
 
 **Minecraft 26.2 — Iris / Spooklementary development line**
 
-Current development branch:
-
-```text
-dev/26.2/v0.1.0-iris-uniforms
-```
+Active development is committed directly to `main`. Historical development branches may remain in Git history, but they are not part of the current workflow.
 
 The first measured target is the **Iris custom-uniform pipeline**, using **Spooklementary 2.0.4** on **Iris 1.11.4 + Sodium 0.9.2** as the primary planned real-world shader workload.
 
@@ -22,15 +18,9 @@ See [docs/VALIDATION_STATUS.md](docs/VALIDATION_STATUS.md).
 
 ## Version isolation
 
-Minecraft-version-specific work is isolated in dedicated release branches and source integration packages.
+Git development uses `main` as the single active development line. Minecraft-version isolation is enforced in the repository layout rather than through long-lived version branches.
 
-```text
-main
-└── mc/26.2
-    └── dev/26.2/v0.1.0-iris-uniforms
-```
-
-Version-sensitive integration code uses explicit packages such as `mc26_2`; reference sources use `References/26.2/`.
+Version-sensitive integration code uses explicit packages such as `mc26_2`; reference sources use `References/26.2/`. A future Minecraft version should receive sibling version packages/directories rather than accumulating broad version conditionals inside the existing implementation.
 
 ## Goals
 
