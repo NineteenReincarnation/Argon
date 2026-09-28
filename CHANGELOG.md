@@ -32,7 +32,11 @@ Target: Minecraft 26.2 / Fabric
 
 - Update the Minecraft 26.2 development baseline to Fabric API 0.161.0+26.2.
 
-- Add a simulation-only Phase B mode that measures cache opportunity without skipping Iris evaluation and detects dependency/classification mismatches.\n\n### Validation
+- Add a simulation-only Phase B mode that measures cache opportunity without skipping Iris evaluation and detects dependency/classification mismatches.
+
+- Extend Argon Probe P0 capture quality with PresentMon ETW loss diagnostics, including final stderr warning parsing without storing raw stderr.
+- Avoid enabling PresentMon `--track_etw_status` in the stdout-CSV path because the audited upstream implementation emits periodic non-CSV status text to stdout.
+- Stage Probe reports to a temporary ZIP, flush them, reopen and validate required JSON/CSV structure, then atomically publish the final report.\n\n### Validation
 
 - CI compile validation: complete.
 - CI package-content validation: complete.
