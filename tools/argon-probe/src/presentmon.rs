@@ -180,9 +180,8 @@ pub fn capture(
         .join()
         .map_err(|_| "PresentMon stderr reader thread panicked")??;
     let warnings = parse_presentmon_warnings(&String::from_utf8_lossy(&stderr_bytes));
-    let etw_status_available = parsed.etw_status_available
-        || backend.etw_status_tracking
-        || warnings.has_loss_evidence();
+    let etw_status_available =
+        parsed.etw_status_available || backend.etw_status_tracking || warnings.has_loss_evidence();
     let etw_events_lost = quality_counter(
         etw_status_available,
         parsed.etw_events_lost,
