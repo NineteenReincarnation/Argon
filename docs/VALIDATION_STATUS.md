@@ -2,7 +2,7 @@
 
 This file distinguishes what Argon has actually validated from what is only designed or compiled.
 
-## Current status — v1.1.35+26.2 / Minecraft 26.2
+## Current status — v1.1.37+26.2 / Minecraft 26.2
 
 ### Verified by CI
 
