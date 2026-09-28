@@ -228,10 +228,18 @@ fn parse_presentmon_csv<R: Read>(
             }
         };
 
-        etw_events_lost = max_optional(etw_events_lost, parse_optional_u64(&row, layout.etw_events_lost));
-        etw_buffers_lost = max_optional(etw_buffers_lost, parse_optional_u64(&row, layout.etw_buffers_lost));
-        overflowed_presents =
-            max_optional(overflowed_presents, parse_optional_u64(&row, layout.overflowed_presents));
+        etw_events_lost = max_optional(
+            etw_events_lost,
+            parse_optional_u64(&row, layout.etw_events_lost),
+        );
+        etw_buffers_lost = max_optional(
+            etw_buffers_lost,
+            parse_optional_u64(&row, layout.etw_buffers_lost),
+        );
+        overflowed_presents = max_optional(
+            overflowed_presents,
+            parse_optional_u64(&row, layout.overflowed_presents),
+        );
 
         match layout.parse_row(&row, expected_pid) {
             Ok(parsed) => accumulator.observe(
