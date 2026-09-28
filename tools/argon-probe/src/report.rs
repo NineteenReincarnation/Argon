@@ -1,5 +1,5 @@
 use crate::metrics::{CaptureMetrics, FrameSample, FrameSummary, QpcAnchor};
-use crate::presentmon::PresentMonCapture;
+use crate::presentmon::{PresentMonBackend, PresentMonCapture};
 use crate::process::TargetProcess;
 use serde::Serialize;
 use std::fs::{self, File};
@@ -40,6 +40,8 @@ pub struct BackendCapability {
     pub available: bool,
     pub executable_name: Option<String>,
     pub version: Option<String>,
+    pub cli_contract: Option<&'static str>,
+    pub cli_contract_verified: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -75,8 +77,10 @@ pub struct Summary<'a> {
 
 #[derive(Debug, Serialize)]
 pub struct MetricNotes {
-    pub one_percent_low: &'static str,
-    pub point_one_percent_low: &'static str,
+    pub cpu_frame_time: &'static str,
+    pub displayed_time: &'static str,
+    pub low_fps: &'static str,
+    pub runtime_semantics_validation: &'static str,
 }
 
 pub fn environment_snapshot(target: &TargetProcess) -> EnvironmentSnapshot {
@@ -122,7 +126,19 @@ pub fn quality_snapshot(capture: &PresentMonCapture) -> QualitySnapshot {
     }
     if summary.frames < 300 {
         notes.push(
-            "primary stream contains fewer than 300 frames; percentile estimates are weak"
+            "primary stream contains fewer than 300 CPU-frame samples; percentile estimates are weak"
+                .to_owned(),
+        );
+    }
+    if !capture.display_metrics_available {
+        notes.push(
+            "PresentMon did not expose DisplayedTime; display-side timing is omitted rather than treated as dropped frames"
+                .to_owned(),
+        );
+    }
+    if summary.present_runtimes.contains_key("Other") {
+        notes.push(
+            "PresentRuntime includes Other (typical for OpenGL/Vulkan); PresentMon documents CPU FrameTime as potentially slightly less accurate for this runtime, so Minecraft/OpenGL semantics still require runtime validation"
                 .to_owned(),
         );
     }
@@ -153,7 +169,7 @@ pub fn quality_snapshot(capture: &PresentMonCapture) -> QualitySnapshot {
 }
 
 pub fn capability_snapshot(
-    presentmon_path: &Path,
+    presentmon: &PresentMonBackend,
     capture: &PresentMonCapture,
     qpc_anchor: QpcAnchor,
 ) -> CapabilitySnapshot {
@@ -163,10 +179,13 @@ pub fn capability_snapshot(
         qpc_frequency_hz: Some(qpc_anchor.frequency_hz),
         presentmon: BackendCapability {
             available: true,
-            executable_name: presentmon_path
+            executable_name: presentmon
+                .path
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned()),
-            version: capture.backend_version.clone(),
+            version: presentmon.version.clone(),
+            cli_contract: Some("presentmon-console-v2-qpc"),
+            cli_contract_verified: true,
         },
         presentmon_gpu_metrics: capture.gpu_metrics_available,
         presentmon_display_metrics: capture.display_metrics_available,
@@ -214,8 +233,10 @@ pub fn write_report(
     let summary = Summary {
         frames: &metrics.summary,
         metric_notes: MetricNotes {
-            one_percent_low: "Approximate average FPS of the slowest 1% of primary-stream frames, derived from a 0.1 ms histogram.",
-            point_one_percent_low: "Approximate average FPS of the slowest 0.1% of primary-stream frames, derived from a 0.1 ms histogram.",
+            cpu_frame_time: "PresentMon v2 FrameTime: time between CPU frame starts. This is recorded explicitly as CPU frame time, not treated as interchangeable with display duration.",
+            displayed_time: "PresentMon v2 DisplayedTime: how long a displayed frame remained on screen. NA rows are counted as not displayed only when the DisplayedTime column is actually available.",
+            low_fps: "Approximate slow-tail FPS values are derived from a 0.1 ms bounded histogram for the corresponding timing source.",
+            runtime_semantics_validation: "P0 metric structure is test-verified, but Minecraft 26.2/OpenGL metric semantics remain runtime-unverified until issue #9 is completed.",
         },
     };
 
@@ -248,7 +269,7 @@ fn frames_csv(frames: &[FrameSample]) -> Result<Vec<u8>, Box<dyn std::error::Err
     writer.write_record([
         "swapchain",
         "qpc",
-        "frame_time_ms",
+        "cpu_frame_time_ms",
         "cpu_busy_ms",
         "cpu_wait_ms",
         "gpu_time_ms",
@@ -260,7 +281,7 @@ fn frames_csv(frames: &[FrameSample]) -> Result<Vec<u8>, Box<dyn std::error::Err
         writer.write_record([
             format!("0x{:X}", frame.swapchain),
             frame.qpc.to_string(),
-            format_ms(Some(frame.frame_time_us)),
+            format_ms(Some(frame.cpu_frame_time_us)),
             format_ms(frame.cpu_busy_us),
             format_ms(frame.cpu_wait_us),
             format_ms(frame.gpu_time_us),
@@ -292,7 +313,7 @@ mod tests {
     use std::io::Read;
 
     #[test]
-    fn report_contains_required_entries() {
+    fn report_contains_required_entries_and_explicit_metric_semantics() {
         let unique = format!("argon-probe-test-{}-{}", std::process::id(), unix_millis());
         let directory = std::env::temp_dir().join(unique);
 
@@ -314,13 +335,13 @@ mod tests {
             target_resident_memory_bytes_at_start: Some(1),
         };
 
-        let mut accumulator = CaptureAccumulator::new(1_000, 120);
+        let mut accumulator = CaptureAccumulator::new(1_000, 120, true);
         for qpc in 1..=400 {
             accumulator.observe(
                 FrameSample {
                     swapchain: 1,
                     qpc,
-                    frame_time_us: 10_000,
+                    cpu_frame_time_us: 10_000,
                     cpu_busy_us: Some(8_000),
                     cpu_wait_us: Some(2_000),
                     gpu_time_us: Some(7_000),
@@ -341,6 +362,8 @@ mod tests {
                 available: true,
                 executable_name: Some("PresentMon.exe".to_owned()),
                 version: None,
+                cli_contract: Some("presentmon-console-v2-qpc"),
+                cli_contract_verified: true,
             },
             presentmon_gpu_metrics: true,
             presentmon_display_metrics: true,
@@ -389,6 +412,22 @@ mod tests {
             entry.read_to_end(&mut bytes).expect("entry should read");
             assert!(!bytes.is_empty());
         }
+
+        let mut summary_entry = archive.by_name("summary.json").expect("summary entry");
+        let mut summary_bytes = Vec::new();
+        summary_entry
+            .read_to_end(&mut summary_bytes)
+            .expect("summary should read");
+        drop(summary_entry);
+
+        let summary_json: serde_json::Value =
+            serde_json::from_slice(&summary_bytes).expect("summary JSON");
+        assert!(
+            summary_json["frames"]["cpu_frame_time"]["p99_ms"]
+                .as_f64()
+                .is_some()
+        );
+        assert!(summary_json["frames"].get("average_frame_ms").is_none());
 
         fs::remove_dir_all(directory).ok();
     }

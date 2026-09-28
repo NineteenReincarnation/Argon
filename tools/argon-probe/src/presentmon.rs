@@ -7,24 +7,45 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+const REQUIRED_CLI_OPTIONS: &[&str] = &[
+    "--process_id",
+    "--output_stdout",
+    "--no_console_stats",
+    "--qpc_time",
+    "--v2_metrics",
+    "--no_track_input",
+    "--timed",
+    "--terminate_after_timed",
+    "--terminate_on_proc_exit",
+    "--session_name",
+];
+
+#[derive(Debug, Clone)]
+pub struct PresentMonBackend {
+    pub path: PathBuf,
+    pub version: Option<String>,
+}
+
 pub struct PresentMonCapture {
     pub metrics: CaptureMetrics,
-    pub backend_version: Option<String>,
     pub rows_rejected: u64,
     pub exit_code: Option<i32>,
     pub gpu_metrics_available: bool,
     pub display_metrics_available: bool,
 }
 
-pub fn find_presentmon(explicit: Option<&Path>) -> Result<PathBuf, String> {
+pub fn resolve_presentmon(explicit: Option<&Path>) -> Result<PresentMonBackend, String> {
+    let path = find_presentmon_path(explicit)?;
+    inspect_presentmon(&path)
+}
+
+fn find_presentmon_path(explicit: Option<&Path>) -> Result<PathBuf, String> {
     if let Some(path) = explicit {
         return validate_candidate(path.to_path_buf());
     }
 
-    if let Some(path) = env::var_os("ARGON_PROBE_PRESENTMON")
-        && let Ok(candidate) = validate_candidate(PathBuf::from(path))
-    {
-        return Ok(candidate);
+    if let Some(path) = env::var_os("ARGON_PROBE_PRESENTMON") {
+        return validate_candidate(PathBuf::from(path));
     }
 
     if let Ok(current_exe) = env::current_exe()
@@ -43,26 +64,59 @@ pub fn find_presentmon(explicit: Option<&Path>) -> Result<PathBuf, String> {
     }
 
     Err(
-        "PresentMon was not found. Pass --presentmon PATH, set ARGON_PROBE_PRESENTMON, or place an official PresentMon executable next to argon-probe / on PATH."
+        "PresentMon was not found. Pass --presentmon PATH, set ARGON_PROBE_PRESENTMON, or place an official PresentMon console executable next to argon-probe / on PATH."
             .to_owned(),
     )
 }
 
-pub fn presentmon_version(path: &Path) -> Option<String> {
-    let output = Command::new(path).arg("--help").output().ok()?;
+fn inspect_presentmon(path: &Path) -> Result<PresentMonBackend, String> {
+    let output = Command::new(path)
+        .arg("--help")
+        .output()
+        .map_err(|error| format!("failed to execute PresentMon --help: {error}"))?;
+
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
+    let help = format!("{stdout}\n{stderr}");
 
-    stdout
-        .lines()
-        .chain(stderr.lines())
+    validate_help_contract(&help)?;
+
+    Ok(PresentMonBackend {
+        path: path.to_path_buf(),
+        version: version_from_help(&help),
+    })
+}
+
+fn validate_help_contract(help: &str) -> Result<(), String> {
+    let missing = REQUIRED_CLI_OPTIONS
+        .iter()
+        .copied()
+        .filter(|option| !help.contains(option))
+        .collect::<Vec<_>>();
+
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "PresentMon does not expose the CLI surface required by Argon Probe P0; missing option(s): {}",
+            missing.join(", ")
+        ))
+    }
+}
+
+fn version_from_help(help: &str) -> Option<String> {
+    help.lines()
         .map(str::trim)
-        .find(|line| line.to_ascii_lowercase().contains("presentmon"))
+        .find(|line| {
+            let lower = line.to_ascii_lowercase();
+            lower.contains("presentmon") && !lower.starts_with("--")
+        })
+        .filter(|line| !line.is_empty())
         .map(ToOwned::to_owned)
 }
 
 pub fn capture(
-    presentmon: &Path,
+    backend: &PresentMonBackend,
     pid: u32,
     duration_seconds: u64,
     ring_seconds: u64,
@@ -70,7 +124,7 @@ pub fn capture(
 ) -> Result<PresentMonCapture, Box<dyn std::error::Error>> {
     let session_name = format!("ArgonProbe-{pid}-{}", unix_millis());
 
-    let mut child = Command::new(presentmon)
+    let mut child = Command::new(&backend.path)
         .args([
             OsStr::new("--process_id"),
             OsStr::new(&pid.to_string()),
@@ -100,7 +154,6 @@ pub fn capture(
 
     Ok(PresentMonCapture {
         metrics: parsed.metrics,
-        backend_version: presentmon_version(presentmon),
         rows_rejected: parsed.rows_rejected,
         exit_code: status.code(),
         gpu_metrics_available: parsed.gpu_metrics_available,
@@ -124,8 +177,10 @@ fn parse_presentmon_csv<R: Read>(
     let mut csv = ReaderBuilder::new().flexible(true).from_reader(reader);
     let headers = csv.headers()?.clone();
     let layout = Layout::from_headers(&headers)?;
+    let display_metrics_available = layout.displayed_time.is_some();
 
-    let mut accumulator = CaptureAccumulator::new(qpc_frequency_hz, ring_seconds);
+    let mut accumulator =
+        CaptureAccumulator::new(qpc_frequency_hz, ring_seconds, display_metrics_available);
     let mut rows_rejected = 0_u64;
 
     for row in csv.records() {
@@ -151,7 +206,7 @@ fn parse_presentmon_csv<R: Read>(
         metrics: accumulator.finish()?,
         rows_rejected,
         gpu_metrics_available: layout.gpu_time.is_some() || layout.gpu_busy.is_some(),
-        display_metrics_available: layout.displayed_time.is_some(),
+        display_metrics_available,
     })
 }
 
@@ -165,7 +220,7 @@ struct Layout {
     process_id: usize,
     swapchain: usize,
     qpc: usize,
-    frame_time: usize,
+    cpu_frame_time: usize,
     cpu_busy: Option<usize>,
     cpu_wait: Option<usize>,
     gpu_time: Option<usize>,
@@ -181,7 +236,7 @@ impl Layout {
             process_id: required_index(headers, "ProcessID")?,
             swapchain: required_index(headers, "SwapChainAddress")?,
             qpc: required_index(headers, "CPUStartQPC")?,
-            frame_time: required_index(headers, "FrameTime")?,
+            cpu_frame_time: required_index(headers, "FrameTime")?,
             cpu_busy: optional_index(headers, "CPUBusy"),
             cpu_wait: optional_index(headers, "CPUWait"),
             gpu_time: optional_index(headers, "GPUTime"),
@@ -203,13 +258,13 @@ impl Layout {
         let qpc = field(row, self.qpc)?
             .parse::<u64>()
             .map_err(|_| "invalid CPUStartQPC".to_owned())?;
-        let frame_time_us = parse_required_ms(field(row, self.frame_time)?)?;
+        let cpu_frame_time_us = parse_required_ms(field(row, self.cpu_frame_time)?)?;
 
         Ok(ParsedRow {
             sample: FrameSample {
                 swapchain: parse_swapchain(field(row, self.swapchain)?)?,
                 qpc,
-                frame_time_us,
+                cpu_frame_time_us,
                 cpu_busy_us: parse_optional_ms(row, self.cpu_busy),
                 cpu_wait_us: parse_optional_ms(row, self.cpu_wait),
                 gpu_time_us: parse_optional_ms(row, self.gpu_time),
@@ -308,6 +363,9 @@ fn find_in_directory(directory: &Path) -> Option<PathBuf> {
                     .is_some_and(|name| {
                         let lower = name.to_ascii_lowercase();
                         lower.starts_with("presentmon")
+                            && !lower.contains("service")
+                            && !lower.contains("application")
+                            && !lower.contains("control")
                             && (lower.ends_with(".exe") || !cfg!(windows))
                     })
         })
@@ -326,7 +384,35 @@ fn unix_millis() -> u128 {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_presentmon_csv;
+    use super::{parse_presentmon_csv, validate_help_contract};
+
+    const SUPPORTED_HELP: &str = "
+PresentMon
+--process_id
+--output_stdout
+--no_console_stats
+--qpc_time
+--v2_metrics
+--no_track_input
+--timed
+--terminate_after_timed
+--terminate_on_proc_exit
+--session_name
+";
+
+    #[test]
+    fn accepts_required_presentmon_cli_surface() {
+        validate_help_contract(SUPPORTED_HELP).expect("required CLI surface should pass");
+    }
+
+    #[test]
+    fn rejects_incomplete_presentmon_cli_surface() {
+        let error = validate_help_contract("--process_id --output_stdout")
+            .expect_err("incomplete CLI surface should fail");
+
+        assert!(error.contains("--v2_metrics"));
+        assert!(error.contains("--qpc_time"));
+    }
 
     #[test]
     fn parses_v2_qpc_csv_and_selects_primary_stream() {
@@ -343,7 +429,17 @@ mod tests {
         assert_eq!(parsed.rows_rejected, 0);
         assert_eq!(parsed.metrics.summary.primary_swapchain, "0xABC");
         assert_eq!(parsed.metrics.summary.frames, 2);
-        assert_eq!(parsed.metrics.summary.undisplayed_frames, 1);
+        assert_eq!(parsed.metrics.summary.not_displayed_frames, Some(1));
+        assert_eq!(
+            parsed
+                .metrics
+                .summary
+                .displayed_time
+                .as_ref()
+                .expect("display timing summary")
+                .samples,
+            1
+        );
         assert!(parsed.gpu_metrics_available);
         assert!(parsed.display_metrics_available);
     }
@@ -362,9 +458,26 @@ mod tests {
         assert_eq!(parsed.rows_rejected, 0);
         assert_eq!(parsed.metrics.summary.primary_swapchain, "0x2A70D2CAC00");
         assert_eq!(parsed.metrics.summary.frames, 2);
-        assert_eq!(parsed.metrics.summary.undisplayed_frames, 1);
+        assert_eq!(parsed.metrics.summary.not_displayed_frames, Some(1));
         assert!(parsed.gpu_metrics_available);
         assert!(parsed.display_metrics_available);
+        assert_eq!(parsed.metrics.summary.cpu_frame_time.samples, 2);
+    }
+
+    #[test]
+    fn absent_display_column_is_capability_absence_not_dropped_frames() {
+        let csv = concat!(
+            "ProcessID,SwapChainAddress,CPUStartQPC,FrameTime\n",
+            "42,0x1,1000,10.0\n",
+            "42,0x1,2000,10.0\n"
+        );
+
+        let parsed =
+            parse_presentmon_csv(csv.as_bytes(), 42, 1_000, 120).expect("fixture should parse");
+
+        assert!(!parsed.display_metrics_available);
+        assert!(parsed.metrics.summary.displayed_time.is_none());
+        assert!(parsed.metrics.summary.not_displayed_frames.is_none());
     }
 
     #[test]

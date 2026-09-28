@@ -9,12 +9,29 @@ const HISTOGRAM_BUCKETS: usize = (HISTOGRAM_MAX_US / HISTOGRAM_BUCKET_US) as usi
 pub struct FrameSample {
     pub swapchain: u64,
     pub qpc: u64,
-    pub frame_time_us: u64,
+    pub cpu_frame_time_us: u64,
     pub cpu_busy_us: Option<u64>,
     pub cpu_wait_us: Option<u64>,
     pub gpu_time_us: Option<u64>,
     pub gpu_busy_us: Option<u64>,
     pub displayed_time_us: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TimingSummary {
+    pub samples: u64,
+    pub average_ms: f64,
+    pub average_fps_approx: f64,
+    pub p50_ms: f64,
+    pub p95_ms: f64,
+    pub p99_ms: f64,
+    pub p999_ms: f64,
+    pub one_percent_low_fps_approx: f64,
+    pub point_one_percent_low_fps_approx: f64,
+    pub samples_over_16_67_ms: u64,
+    pub samples_over_33_33_ms: u64,
+    pub samples_over_50_ms: u64,
+    pub samples_over_100_ms: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -24,19 +41,9 @@ pub struct FrameSummary {
     pub all_stream_frames: u64,
     pub stream_count: usize,
     pub primary_frame_share: f64,
-    pub average_frame_ms: f64,
-    pub average_fps: f64,
-    pub p50_frame_ms: f64,
-    pub p95_frame_ms: f64,
-    pub p99_frame_ms: f64,
-    pub p999_frame_ms: f64,
-    pub one_percent_low_fps_approx: f64,
-    pub point_one_percent_low_fps_approx: f64,
-    pub frames_over_16_67_ms: u64,
-    pub frames_over_33_33_ms: u64,
-    pub frames_over_50_ms: u64,
-    pub frames_over_100_ms: u64,
-    pub undisplayed_frames: u64,
+    pub cpu_frame_time: TimingSummary,
+    pub displayed_time: Option<TimingSummary>,
+    pub not_displayed_frames: Option<u64>,
     pub present_modes: BTreeMap<String, u64>,
     pub present_runtimes: BTreeMap<String, u64>,
 }
@@ -47,13 +54,15 @@ pub struct CaptureAccumulator {
     ring: VecDeque<FrameSample>,
     streams: HashMap<u64, StreamState>,
     all_stream_frames: u64,
+    display_metric_available: bool,
 }
 
 struct StreamState {
-    stats: FrameStats,
+    cpu_frame_stats: FrameStats,
+    displayed_stats: Option<FrameStats>,
     present_modes: BTreeMap<String, u64>,
     present_runtimes: BTreeMap<String, u64>,
-    undisplayed_frames: u64,
+    not_displayed_frames: Option<u64>,
 }
 
 struct FrameStats {
@@ -75,13 +84,14 @@ pub struct CaptureMetrics {
 }
 
 impl CaptureAccumulator {
-    pub fn new(qpc_frequency_hz: u64, ring_seconds: u64) -> Self {
+    pub fn new(qpc_frequency_hz: u64, ring_seconds: u64, display_metric_available: bool) -> Self {
         Self {
             ring_window_ticks: qpc_frequency_hz.saturating_mul(ring_seconds),
             latest_qpc: 0,
             ring: VecDeque::new(),
             streams: HashMap::new(),
             all_stream_frames: 0,
+            display_metric_available,
         }
     }
 
@@ -97,11 +107,15 @@ impl CaptureAccumulator {
         let stream = self
             .streams
             .entry(sample.swapchain)
-            .or_insert_with(StreamState::new);
-        stream.stats.observe(sample.frame_time_us);
+            .or_insert_with(|| StreamState::new(self.display_metric_available));
+        stream.cpu_frame_stats.observe(sample.cpu_frame_time_us);
 
-        if sample.displayed_time_us.is_none() {
-            stream.undisplayed_frames += 1;
+        if let Some(displayed_stats) = stream.displayed_stats.as_mut() {
+            if let Some(displayed_time_us) = sample.displayed_time_us {
+                displayed_stats.observe(displayed_time_us);
+            } else if let Some(not_displayed) = stream.not_displayed_frames.as_mut() {
+                *not_displayed += 1;
+            }
         }
 
         if let Some(mode) = present_mode.filter(|value| !value.is_empty()) {
@@ -130,10 +144,10 @@ impl CaptureAccumulator {
         let (&primary_swapchain, primary) = self
             .streams
             .iter()
-            .max_by_key(|(_, stream)| stream.stats.count)
+            .max_by_key(|(_, stream)| stream.cpu_frame_stats.count)
             .ok_or_else(|| "PresentMon returned no usable frame samples".to_owned())?;
 
-        let frames = primary.stats.count;
+        let frames = primary.cpu_frame_stats.count;
         let primary_frame_share = if self.all_stream_frames == 0 {
             0.0
         } else {
@@ -146,19 +160,9 @@ impl CaptureAccumulator {
             all_stream_frames: self.all_stream_frames,
             stream_count: self.streams.len(),
             primary_frame_share,
-            average_frame_ms: primary.stats.average_us() / 1_000.0,
-            average_fps: fps_from_us(primary.stats.average_us()),
-            p50_frame_ms: primary.stats.percentile_us(0.50) / 1_000.0,
-            p95_frame_ms: primary.stats.percentile_us(0.95) / 1_000.0,
-            p99_frame_ms: primary.stats.percentile_us(0.99) / 1_000.0,
-            p999_frame_ms: primary.stats.percentile_us(0.999) / 1_000.0,
-            one_percent_low_fps_approx: primary.stats.tail_low_fps(0.01),
-            point_one_percent_low_fps_approx: primary.stats.tail_low_fps(0.001),
-            frames_over_16_67_ms: primary.stats.over_16_67_ms,
-            frames_over_33_33_ms: primary.stats.over_33_33_ms,
-            frames_over_50_ms: primary.stats.over_50_ms,
-            frames_over_100_ms: primary.stats.over_100_ms,
-            undisplayed_frames: primary.undisplayed_frames,
+            cpu_frame_time: primary.cpu_frame_stats.summary(),
+            displayed_time: primary.displayed_stats.as_ref().map(FrameStats::summary),
+            not_displayed_frames: primary.not_displayed_frames,
             present_modes: primary.present_modes.clone(),
             present_runtimes: primary.present_runtimes.clone(),
         };
@@ -177,12 +181,13 @@ impl CaptureAccumulator {
 }
 
 impl StreamState {
-    fn new() -> Self {
+    fn new(display_metric_available: bool) -> Self {
         Self {
-            stats: FrameStats::new(),
+            cpu_frame_stats: FrameStats::new(),
+            displayed_stats: display_metric_available.then(FrameStats::new),
             present_modes: BTreeMap::new(),
             present_runtimes: BTreeMap::new(),
-            undisplayed_frames: 0,
+            not_displayed_frames: display_metric_available.then_some(0),
         }
     }
 }
@@ -203,23 +208,41 @@ impl FrameStats {
         }
     }
 
-    fn observe(&mut self, frame_us: u64) {
+    fn observe(&mut self, sample_us: u64) {
         self.count += 1;
-        self.sum_us += frame_us as u128;
-        self.max_us = self.max_us.max(frame_us);
+        self.sum_us += sample_us as u128;
+        self.max_us = self.max_us.max(sample_us);
 
-        if frame_us > HISTOGRAM_MAX_US {
+        if sample_us > HISTOGRAM_MAX_US {
             self.overflow_count += 1;
-            self.overflow_sum_us += frame_us as u128;
+            self.overflow_sum_us += sample_us as u128;
         } else {
-            let index = (frame_us / HISTOGRAM_BUCKET_US) as usize;
+            let index = (sample_us / HISTOGRAM_BUCKET_US) as usize;
             self.histogram[index] += 1;
         }
 
-        self.over_16_67_ms += u64::from(frame_us > 16_670);
-        self.over_33_33_ms += u64::from(frame_us > 33_330);
-        self.over_50_ms += u64::from(frame_us > 50_000);
-        self.over_100_ms += u64::from(frame_us > 100_000);
+        self.over_16_67_ms += u64::from(sample_us > 16_670);
+        self.over_33_33_ms += u64::from(sample_us > 33_330);
+        self.over_50_ms += u64::from(sample_us > 50_000);
+        self.over_100_ms += u64::from(sample_us > 100_000);
+    }
+
+    fn summary(&self) -> TimingSummary {
+        TimingSummary {
+            samples: self.count,
+            average_ms: self.average_us() / 1_000.0,
+            average_fps_approx: fps_from_us(self.average_us()),
+            p50_ms: self.percentile_us(0.50) / 1_000.0,
+            p95_ms: self.percentile_us(0.95) / 1_000.0,
+            p99_ms: self.percentile_us(0.99) / 1_000.0,
+            p999_ms: self.percentile_us(0.999) / 1_000.0,
+            one_percent_low_fps_approx: self.tail_low_fps(0.01),
+            point_one_percent_low_fps_approx: self.tail_low_fps(0.001),
+            samples_over_16_67_ms: self.over_16_67_ms,
+            samples_over_33_33_ms: self.over_33_33_ms,
+            samples_over_50_ms: self.over_50_ms,
+            samples_over_100_ms: self.over_100_ms,
+        }
     }
 
     fn average_us(&self) -> f64 {
@@ -343,22 +366,22 @@ pub struct QpcAnchor {
 mod tests {
     use super::{CaptureAccumulator, FrameSample};
 
-    fn sample(swapchain: u64, qpc: u64, frame_us: u64) -> FrameSample {
+    fn sample(swapchain: u64, qpc: u64, cpu_frame_us: u64) -> FrameSample {
         FrameSample {
             swapchain,
             qpc,
-            frame_time_us: frame_us,
+            cpu_frame_time_us: cpu_frame_us,
             cpu_busy_us: None,
             cpu_wait_us: None,
             gpu_time_us: None,
             gpu_busy_us: None,
-            displayed_time_us: Some(frame_us),
+            displayed_time_us: Some(cpu_frame_us),
         }
     }
 
     #[test]
     fn ring_evicts_old_frames() {
-        let mut capture = CaptureAccumulator::new(1_000, 2);
+        let mut capture = CaptureAccumulator::new(1_000, 2, true);
         capture.observe(sample(1, 1_000, 10_000), None, None);
         capture.observe(sample(1, 2_000, 10_000), None, None);
         capture.observe(sample(1, 4_001, 10_000), None, None);
@@ -370,7 +393,7 @@ mod tests {
 
     #[test]
     fn dominant_swapchain_is_selected() {
-        let mut capture = CaptureAccumulator::new(1_000, 10);
+        let mut capture = CaptureAccumulator::new(1_000, 10, true);
 
         for qpc in 1..=100 {
             capture.observe(
@@ -388,6 +411,42 @@ mod tests {
         assert_eq!(result.summary.frames, 100);
         assert_eq!(result.summary.stream_count, 2);
         assert!(result.summary.primary_frame_share > 0.90);
-        assert!(result.summary.p99_frame_ms >= 9.9);
+        assert!(result.summary.cpu_frame_time.p99_ms >= 9.9);
+    }
+
+    #[test]
+    fn unavailable_display_metric_is_not_counted_as_not_displayed() {
+        let mut capture = CaptureAccumulator::new(1_000, 10, false);
+        let mut frame = sample(1, 1_000, 10_000);
+        frame.displayed_time_us = None;
+        capture.observe(frame, None, Some("Other"));
+
+        let result = capture.finish().expect("capture should contain frames");
+        assert!(result.summary.displayed_time.is_none());
+        assert!(result.summary.not_displayed_frames.is_none());
+    }
+
+    #[test]
+    fn available_display_metric_counts_na_rows_as_not_displayed() {
+        let mut capture = CaptureAccumulator::new(1_000, 10, true);
+
+        let displayed = sample(1, 1_000, 10_000);
+        capture.observe(displayed, None, Some("Other"));
+
+        let mut not_displayed = sample(1, 2_000, 10_000);
+        not_displayed.displayed_time_us = None;
+        capture.observe(not_displayed, None, Some("Other"));
+
+        let result = capture.finish().expect("capture should contain frames");
+        assert_eq!(result.summary.not_displayed_frames, Some(1));
+        assert_eq!(
+            result
+                .summary
+                .displayed_time
+                .as_ref()
+                .expect("display timing summary")
+                .samples,
+            1
+        );
     }
 }

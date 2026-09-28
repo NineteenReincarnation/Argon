@@ -105,7 +105,7 @@ fn capture(
     }
 
     let target = process::select_target(pid)?;
-    let presentmon_path = presentmon::find_presentmon(presentmon_override.as_deref())?;
+    let presentmon = presentmon::resolve_presentmon(presentmon_override.as_deref())?;
     let qpc_anchor = metrics::qpc_clock_anchor()?;
     let started_unix_ms = report::unix_millis();
     let environment = report::environment_snapshot(&target);
@@ -116,21 +116,25 @@ fn capture(
     );
     println!(
         "PresentMon: {}",
-        presentmon_path
+        presentmon
+            .path
             .file_name()
             .map(|name| name.to_string_lossy())
             .unwrap_or_default()
     );
+    if let Some(version) = &presentmon.version {
+        println!("PresentMon identity: {version}");
+    }
 
     let capture = presentmon::capture(
-        &presentmon_path,
+        &presentmon,
         target.pid,
         duration_seconds,
         ring_seconds,
         qpc_anchor.frequency_hz,
     )?;
 
-    let capabilities = report::capability_snapshot(&presentmon_path, &capture, qpc_anchor);
+    let capabilities = report::capability_snapshot(&presentmon, &capture, qpc_anchor);
     let quality = report::quality_snapshot(&capture);
     let report_path = report::write_report(
         &output,
@@ -147,8 +151,18 @@ fn capture(
     println!("Capture quality: {}", quality.capture_quality);
     println!("Primary stream: {}", summary.primary_swapchain);
     println!("Frames: {}", summary.frames);
-    println!("Median frame time: {:.3} ms", summary.p50_frame_ms);
-    println!("P99 frame time: {:.3} ms", summary.p99_frame_ms);
+    println!(
+        "Median CPU frame time: {:.3} ms",
+        summary.cpu_frame_time.p50_ms
+    );
+    println!(
+        "P99 CPU frame time: {:.3} ms",
+        summary.cpu_frame_time.p99_ms
+    );
+    if let Some(displayed) = &summary.displayed_time {
+        println!("Displayed-time samples: {}", displayed.samples);
+        println!("Median displayed time: {:.3} ms", displayed.p50_ms);
+    }
     println!("Report: {}", report_path.display());
 
     Ok(())

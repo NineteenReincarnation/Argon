@@ -16,6 +16,8 @@ Implemented and CI-verified:
 - conservative Minecraft Java process discovery with explicit `--pid` fallback;
 - external PresentMon CLI discovery/orchestration;
 - PresentMon v2/QPC CSV parsing fixtures;
+- PresentMon CLI-surface preflight before capture;
+- explicit separation of PresentMon CPU `FrameTime` and display-side `DisplayedTime` semantics;
 - per-swapchain frame aggregation and primary-stream selection;
 - bounded QPC-based recent-frame ring;
 - bounded histogram statistics for P50/P95/P99/P99.9 and approximate 1%/0.1% lows;
@@ -27,7 +29,7 @@ Not yet verified:
 
 - Minecraft 26.2 runtime process detection on a real developer machine;
 - real PresentMon capture against Minecraft/OpenGL;
-- correctness of the chosen PresentMon metrics for Argon benchmark conclusions;
+- runtime correctness of the chosen PresentMon CPU/display timing metrics for Argon benchmark conclusions;
 - lost-ETW-event detection;
 - Probe OFF/ON measurement overhead;
 - any ≤0.5% or ≤1% overhead target.
