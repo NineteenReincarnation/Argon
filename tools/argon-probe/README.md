@@ -22,10 +22,12 @@ Implemented and CI-verified:
 - bounded QPC-based recent-frame ring;
 - bounded histogram statistics for P50/P95/P99/P99.9 and approximate 1%/0.1% lows;
 - environment/capability/quality metadata;
-- capability-gated PresentMon ETW loss tracking using `--track_etw_status` when available;
-- ETW events-lost, buffers-lost, and overflowed-present high-water marks in `quality.json`;
+- capability-gated PresentMon ETW loss diagnostics without mixing console status text into the streamed CSV;
+- final stderr warning parsing for ETW events lost, ETW buffers lost, and overflowed present events;
+- optional ETW quality-column parsing when those columns are present;
 - automatic quality downgrade when ETW loss evidence is unavailable or non-zero;
-- ZIP report generation and report-entry round-trip tests;
+- report ZIP staging, flush, reopen/structure validation, and atomic publication;
+- report-entry round-trip tests;
 - Windows CLI smoke tests.
 
 Not yet verified:
@@ -33,7 +35,7 @@ Not yet verified:
 - Minecraft 26.2 runtime process detection on a real developer machine;
 - real PresentMon capture against Minecraft/OpenGL;
 - runtime correctness of the chosen PresentMon CPU/display timing metrics for Argon benchmark conclusions;
-- real-world validation that PresentMon ETW loss counters behave as expected for Minecraft/OpenGL;
+- real-world validation that PresentMon final ETW-loss diagnostics behave as expected for Minecraft/OpenGL;
 - Probe OFF/ON measurement overhead;
 - any ≤0.5% or ≤1% overhead target.
 
@@ -62,6 +64,8 @@ argon-probe.exe capture `
 P0 disables PresentMon GPU-duration tracking by default to keep the base capture as small as practical; `--track-gpu` enables it explicitly when GPU timing evidence is needed.
 
 PresentMon is intentionally not vendored into this repository. P0 accepts an official PresentMon console executable via `--presentmon`, `ARGON_PROBE_PRESENTMON`, the Probe executable directory, or `PATH`.
+
+P0 detects whether the PresentMon CLI exposes `--track_etw_status`, but deliberately does **not** enable it while using `--output_stdout`: at the audited upstream source state, that option emits periodic `[ETW Status]` console lines to stdout, which would share the same stream as CSV output. Probe instead drains PresentMon stderr concurrently and extracts only the final fixed ETW-loss warning counts. Raw stderr is not written into the report.
 
 The audited PresentMon source/CLI contract used for P0 is recorded in [`References/26.2/tooling/PRESENTMON.md`](../../References/26.2/tooling/PRESENTMON.md). Runtime compatibility is still determined from the required CLI/CSV surface, not from a version-string prefix.
 
