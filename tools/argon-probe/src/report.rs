@@ -116,10 +116,15 @@ pub fn quality_snapshot(capture: &PresentMonCapture) -> QualitySnapshot {
         ));
     }
     if summary.primary_frame_share < 0.80 {
-        notes.push("primary present stream accounted for less than 80% of captured frames".to_owned());
+        notes.push(
+            "primary present stream accounted for less than 80% of captured frames".to_owned(),
+        );
     }
     if summary.frames < 300 {
-        notes.push("primary stream contains fewer than 300 frames; percentile estimates are weak".to_owned());
+        notes.push(
+            "primary stream contains fewer than 300 frames; percentile estimates are weak"
+                .to_owned(),
+        );
     }
 
     let exit_failed = capture.exit_code.is_some_and(|code| code != 0);

@@ -51,9 +51,9 @@ pub fn select_target(explicit_pid: Option<u32>) -> Result<TargetProcess, String>
     }
 
     let candidates = discover_minecraft_candidates();
-    let first = candidates
-        .first()
-        .ok_or_else(|| "no likely Minecraft Java client process was found; use 'list' or pass --pid".to_owned())?;
+    let first = candidates.first().ok_or_else(|| {
+        "no likely Minecraft Java client process was found; use 'list' or pass --pid".to_owned()
+    })?;
 
     if first.score < AUTO_SELECT_MIN_SCORE {
         return Err(format!(

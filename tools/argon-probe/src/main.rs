@@ -61,13 +61,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             duration_seconds,
             ring_seconds,
             output,
-        } => capture(
-            pid,
-            presentmon,
-            duration_seconds,
-            ring_seconds,
-            output,
-        ),
+        } => capture(pid, presentmon, duration_seconds, ring_seconds, output),
     }
 }
 

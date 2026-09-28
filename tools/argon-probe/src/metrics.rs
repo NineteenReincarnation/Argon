@@ -111,7 +111,10 @@ impl CaptureAccumulator {
         }
 
         if let Some(runtime) = present_runtime.filter(|value| !value.is_empty()) {
-            *stream.present_runtimes.entry(runtime.to_owned()).or_insert(0) += 1;
+            *stream
+                .present_runtimes
+                .entry(runtime.to_owned())
+                .or_insert(0) += 1;
         }
 
         if self.ring_window_ticks > 0 {
@@ -119,11 +122,7 @@ impl CaptureAccumulator {
             if sample.qpc >= cutoff {
                 self.ring.push_back(sample);
             }
-            while self
-                .ring
-                .front()
-                .is_some_and(|oldest| oldest.qpc < cutoff)
-            {
+            while self.ring.front().is_some_and(|oldest| oldest.qpc < cutoff) {
                 self.ring.pop_front();
             }
         }
@@ -380,7 +379,11 @@ mod tests {
         let mut capture = CaptureAccumulator::new(1_000, 10);
 
         for qpc in 1..=100 {
-            capture.observe(sample(10, qpc, 10_000), Some("Composed: Flip"), Some("DXGI"));
+            capture.observe(
+                sample(10, qpc, 10_000),
+                Some("Composed: Flip"),
+                Some("DXGI"),
+            );
         }
         for qpc in 101..=110 {
             capture.observe(sample(20, qpc, 40_000), None, None);

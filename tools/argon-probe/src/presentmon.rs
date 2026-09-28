@@ -225,7 +225,8 @@ impl Layout {
 }
 
 fn required_index(headers: &StringRecord, name: &str) -> Result<usize, String> {
-    optional_index(headers, name).ok_or_else(|| format!("PresentMon output is missing required column {name}"))
+    optional_index(headers, name)
+        .ok_or_else(|| format!("PresentMon output is missing required column {name}"))
 }
 
 fn optional_index(headers: &StringRecord, name: &str) -> Option<usize> {
@@ -275,7 +276,10 @@ fn validate_candidate(path: PathBuf) -> Result<PathBuf, String> {
     if path.is_file() {
         Ok(path)
     } else {
-        Err(format!("PresentMon executable does not exist: {}", path.display()))
+        Err(format!(
+            "PresentMon executable does not exist: {}",
+            path.display()
+        ))
     }
 }
 
@@ -330,8 +334,8 @@ mod tests {
             "javaw.exe,42,0xDEF,Other,Composed: Flip,2100,40.000,30.000,10.000,20.000,15.000,40.000\n"
         );
 
-        let parsed = parse_presentmon_csv(csv.as_bytes(), 42, 1_000, 120)
-            .expect("fixture should parse");
+        let parsed =
+            parse_presentmon_csv(csv.as_bytes(), 42, 1_000, 120).expect("fixture should parse");
 
         assert_eq!(parsed.rows_rejected, 0);
         assert_eq!(parsed.metrics.summary.primary_swapchain, "0xABC");
