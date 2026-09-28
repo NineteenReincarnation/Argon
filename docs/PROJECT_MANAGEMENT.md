@@ -8,55 +8,15 @@ Minecraft target: **26.2**
 
 Current validation state is tracked in `docs/VALIDATION_STATUS.md`. At present, the project has CI build validation but no in-game validation.
 
-## Version isolation
+## Version management
 
-Argon isolates Minecraft versions in source and reference boundaries while using `main` as the single active development branch.
+Argon uses `main` as the single active development branch.
 
-### Git development line
+All development, fixes, documentation, tooling, validation work, and release preparation are committed directly to `main`. Historical `mc/<version>` and `dev/<version>/...` branches are not part of the active workflow.
 
-All current development, fixes, documentation, tooling, and release preparation are committed directly to `main`.
+Project progression is tracked by the Argon version number rather than by release branches.
 
-Historical `mc/<version>` and `dev/<version>/...` branches are not part of the active workflow. New Minecraft versions do not require a new long-lived Git branch by default.
-
-Version separation must instead remain explicit in source packages, integration layers, configuration, tests, and reference directories.
-
-### Source integration layers
-
-Shared code remains outside a Minecraft-version package when it genuinely does not depend on version-specific Minecraft/Iris internals.
-
-Version-sensitive Mixins and adapters live under an explicit package such as:
-
-```text
-io.github.nineteenreincarnation.argon.mixin.mc26_2
-io.github.nineteenreincarnation.argon.version.mc26_2
-```
-
-A later port creates a sibling `mc26_3` layer instead of mutating the 26.2 layer into a multi-version conditional maze.
-
-### Reference baselines
-
-Version-specific external references remain under:
-
-```text
-References/<minecraft-version>/
-```
-
-Third-party source pointers are pinned per Minecraft version.
-
-## Runtime compatibility gate
-
-A version-specific Mixin fails closed when its external target version has not been validated.
-
-For the current Iris work, the 26.2 integration is gated to the exact Fabric metadata baseline:
-
-- Minecraft `26.2`
-- Iris `1.11.4+mc26.2`
-
-The human-facing Iris release is 1.11.4; its 26.2 Fabric build appends `+mc26.2` to the runtime version string.
-
-Unknown Iris versions do not automatically receive the patch. Compatibility can be widened only after source review and runtime validation.
-
-## Version format
+### Version format
 
 Argon uses:
 
@@ -73,11 +33,11 @@ X.Y.Z+26.2
 The fields have project-specific meanings:
 
 - **X — major content version.** X is currently `1`. It changes only when the project owner explicitly decides that Argon has entered a new major version.
-- **Y — release version.** Y identifies the Argon release line within Minecraft 26.2. When development moves to the next release line, Y increments.
-- **Z — development iteration.** Z increments by 1 for each development iteration made for the same Y release line.
-- **+26.2 — Minecraft target.** Minecraft versions remain explicitly isolated from Argon's X/Y/Z numbering.
+- **Y — release version.** Y identifies the current Argon release line. When development moves to the next release line, Y increments.
+- **Z — development iteration.** Z increments by 1 for each development iteration within the same Y release line.
+- **+26.2 — Minecraft target.** This records the target Minecraft version without changing the meaning of X/Y/Z.
 
-When Y increments, Z resets for the new release line.
+When Y increments, Z resets to `0`.
 
 Examples:
 
@@ -91,9 +51,22 @@ Examples:
 ...
 ```
 
-Do not encode temporary validation states such as `dev`, `alpha`, `beta`, or `rc` into the version string by default. Validation status is tracked separately as compile/package/structure/runtime/visual/performance verification.
+Temporary validation states such as compile/package/structure/runtime/visual/performance verification are tracked separately and are not encoded as `dev`, `alpha`, `beta`, or `rc` in the version string by default.
 
-The repository may temporarily retain an older version string during migration. Do not choose the migration target implicitly; update it only after the project owner specifies the new X/Y/Z baseline.
+Compatibility code may still use explicit Minecraft-version packages or reference directories when upstream structure actually differs. This is an implementation boundary, not a separate Git development line.
+
+## Runtime compatibility gate
+
+A version-specific Mixin fails closed when its external target version has not been validated.
+
+For the current Iris work, the 26.2 integration is gated to the exact Fabric metadata baseline:
+
+- Minecraft `26.2`
+- Iris `1.11.4+mc26.2`
+
+The human-facing Iris release is 1.11.4; its 26.2 Fabric build appends `+mc26.2` to the runtime version string.
+
+Unknown Iris versions do not automatically receive the patch. Compatibility can be widened only after source review and runtime validation.
 
 ## Commit policy
 
