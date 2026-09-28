@@ -88,6 +88,10 @@ Merge
 
 See [docs/PROJECT_MANAGEMENT.md](docs/PROJECT_MANAGEMENT.md).
 
+## Development tools
+
+Argon Probe is a standalone performance-evidence collector under active development. It is intentionally separate from the Fabric mod. See [tools/argon-probe/](tools/argon-probe/README.md).
+
 ## References
 
 Version-specific source and compatibility baselines live under `References/<minecraft-version>/`.

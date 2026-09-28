@@ -1,0 +1,86 @@
+name: Argon Probe
+
+on:
+    push:
+        branches:
+            - main
+            - "mc/**"
+            - "dev/**"
+        paths:
+            - "tools/argon-probe/**"
+            - ".github/workflows/argon-probe.yml"
+    pull_request:
+        paths:
+            - "tools/argon-probe/**"
+            - ".github/workflows/argon-probe.yml"
+
+permissions:
+    contents: read
+
+concurrency:
+    group: argon-probe-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    probe-core:
+        name: Probe core checks
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: tools/argon-probe
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install Rust 1.95
+              run: |
+                  rustup toolchain install 1.95.0 --profile minimal --component rustfmt --component clippy
+                  rustup default 1.95.0
+
+            - name: Format
+              run: cargo fmt --check
+
+            - name: Clippy
+              run: cargo clippy --locked --all-targets -- -D warnings
+
+            - name: Test
+              run: cargo test --locked
+
+
+    probe-windows:
+        name: Probe Windows package
+        runs-on: windows-latest
+        defaults:
+            run:
+                working-directory: tools/argon-probe
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install Rust 1.95
+              shell: pwsh
+              run: |
+                  rustup toolchain install 1.95.0 --profile minimal --component rustfmt --component clippy
+                  rustup default 1.95.0
+
+            - name: Test
+              run: cargo test --locked
+
+            - name: Build release
+              run: cargo build --locked --release
+
+            - name: Smoke CLI
+              shell: pwsh
+              run: |
+                  .\target\release\argon-probe.exe --version
+                  .\target\release\argon-probe.exe --help
+                  .\target\release\argon-probe.exe list
+
+            - name: Upload Windows executable
+              uses: actions/upload-artifact@v4
+              with:
+                  name: argon-probe-windows-${{ github.sha }}
+                  path: |
+                      tools/argon-probe/target/release/argon-probe.exe
+                      tools/argon-probe/Cargo.lock
+                  if-no-files-found: error
