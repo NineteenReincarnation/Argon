@@ -33,7 +33,7 @@ X.Y.Z+26.2
 The fields have project-specific meanings:
 
 - **X — major content version.** X is currently `1`. It changes only when the project owner explicitly decides that Argon has entered a new major version.
-- **Y — release version.** Y identifies the current Argon release line. When development moves to the next release line, Y increments.
+- **Y — release version.** Y identifies the current Argon release line. Argon starts at `1.1`; there is no `1.0` release line. When development moves to the next release line, Y increments.
 - **Z — development iteration.** Z increments by 1 for each development iteration within the same Y release line.
 - **+26.2 — Minecraft target.** This records the target Minecraft version without changing the meaning of X/Y/Z.
 
@@ -42,12 +42,12 @@ When Y increments, Z resets to `0`.
 Examples:
 
 ```text
-1.0.0+26.2
-1.0.1+26.2
-1.0.2+26.2
-...
 1.1.0+26.2
 1.1.1+26.2
+1.1.2+26.2
+...
+1.2.0+26.2
+1.2.1+26.2
 ...
 ```
 
@@ -122,7 +122,7 @@ Compile-only validation does not satisfy runtime, visual, or performance gates.
 3. Record benchmark evidence.
 4. Finalize the changelog.
 5. Confirm the target `main` commit passes the required validation gates.
-6. Tag that `main` commit using its full Argon version, for example `v1.0.12+26.2`.
+6. Tag that `main` commit using its full Argon version, for example `v1.1.12+26.2`.
 7. Publish the CI-built JAR.
 8. When starting the next release line, increment Y and reset Z before new development iterations begin.
 
