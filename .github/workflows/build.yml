@@ -151,6 +151,32 @@ jobs:
                   grep -Fxq "io/github/nineteenreincarnation/argon/client/compat/iris/IrisUniformEvaluationPlanner.class" build/argon-jar-contents.txt
                   grep -Fxq "io/github/nineteenreincarnation/argon/mixin/mc26_2/iris/CustomUniformsMixin.class" build/argon-jar-contents.txt
 
+                  unzip -p "$JAR" fabric.mod.json > build/argon-fabric.mod.json
+                  python - <<'PY'
+                  import json
+                  from pathlib import Path
+
+                  metadata = json.loads(Path("build/argon-fabric.mod.json").read_text())
+                  depends = metadata.get("depends", {})
+
+                  forbidden = {"iris", "sodium", "fabric-api"} & set(depends)
+                  if forbidden:
+                      raise SystemExit(
+                          "Optional integrations must not become hard dependencies: "
+                          + ", ".join(sorted(forbidden))
+                      )
+
+                  required = {"fabricloader", "minecraft", "java"}
+                  missing = required - set(depends)
+                  if missing:
+                      raise SystemExit(
+                          "Missing required core dependencies: "
+                          + ", ".join(sorted(missing))
+                      )
+
+                  print("Optional integration metadata remains fail-independent.")
+                  PY
+
             - name: Upload development JAR
               uses: actions/upload-artifact@v4
               with:

@@ -12,6 +12,7 @@ This file distinguishes what Argon has actually validated from what is only desi
 - The remapped installable JAR is produced successfully.
 - CI inspects the packaged JAR and confirms the expected core classes, 26.2 Mixin plugin, Iris Mixin, `fabric.mod.json`, and Mixin configuration are present.
 - The development JAR is uploaded as a GitHub Actions artifact.
+- CI verifies that Iris, Sodium, and Fabric API remain optional integrations rather than hard Fabric Loader dependencies.
 - Iris 1.11.0, 1.11.1, 1.11.2, and 1.11.4 Fabric builds for Minecraft 26.2 all pass the current Phase 0 Mixin target-surface audit and the static Phase A behavior-assumption audit.
 
 ### Compatibility meaning
