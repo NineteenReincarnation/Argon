@@ -2,7 +2,7 @@
 
 Argon follows semantic versioning for the mod release line and records the Minecraft target in build metadata.
 
-## 0.1.0 — Unreleased
+## Unreleased — Minecraft 26.2
 
 Target: Minecraft 26.2 / Fabric
 
@@ -17,9 +17,22 @@ Target: Minecraft 26.2 / Fabric
 - Add a published-Iris structural compatibility matrix for Minecraft 26.2.
 - Enable Phase 0 instrumentation for structure-verified Iris 1.11.0, 1.11.1, 1.11.2, and 1.11.4.
 - Keep Iris 1.11.4 + Sodium 0.9.2 + Spooklementary 2.0.4 as the primary planned benchmark baseline.
-- Verify the packaged development JAR contains the expected 26.2 integration classes and resources.\n- Add a reproducible development runtime profile for Sodium 0.9.2 + Iris 1.11.4 + Spooklementary 2.0.4.\n- Add machine-readable CSV output for Phase 0 measurement intervals.\n- Implement experimental, default-off per-program Iris custom-uniform upload deduplication for the primary 1.11.4 baseline.\n- Use identity/primitive revision maps on the Phase A hot path and fall back to Iris automatically if runtime structural assumptions fail.\n- Combine program-remap invalidation with a global change-epoch fast path that can skip the entire uniform map when no custom uniform changed.\n- Add a program-level update-sequence fast path that bypasses repeated pushes in the same update cycle.\n- Add a changed-set incremental path so continuously used programs inspect only uniforms that actually changed in the current update when that is cheaper than a full scan.
+- Verify the packaged development JAR contains the expected 26.2 integration classes and resources.
+- Add a reproducible development runtime profile for Sodium 0.9.2 + Iris 1.11.4 + Spooklementary 2.0.4.
+- Add machine-readable CSV output for Phase 0 measurement intervals.
+- Implement experimental, default-off per-program Iris custom-uniform upload deduplication for the primary 1.11.4 baseline.
+- Use identity/primitive revision maps on the Phase A hot path and fall back to Iris automatically if runtime structural assumptions fail.
+- Combine program-remap invalidation with a global change-epoch fast path that can skip the entire uniform map when no custom uniform changed.
+- Add a program-level update-sequence fast path that bypasses repeated pushes in the same update cycle.
+- Add a changed-set incremental path so continuously used programs inspect only uniforms that actually changed in the current update when that is cheaper than a full scan.
 
-- Merge program-remap safety with a three-tier custom-uniform push path: O(1) fast skip, changed-set incremental push, and full revision fallback.\n\n- Add an experimental, default-off Phase B dependency-revision evaluation cache for conservatively classified pure Iris custom expressions.\n\n- Update the Minecraft 26.2 development baseline to Fabric API 0.161.0+26.2.\n\n### Validation
+- Merge program-remap safety with a three-tier custom-uniform push path: O(1) fast skip, changed-set incremental push, and full revision fallback.
+
+- Add an experimental, default-off Phase B dependency-revision evaluation cache for conservatively classified pure Iris custom expressions.
+
+- Update the Minecraft 26.2 development baseline to Fabric API 0.161.0+26.2.
+
+### Validation
 
 - CI compile validation: complete.
 - CI package-content validation: complete.

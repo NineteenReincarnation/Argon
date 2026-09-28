@@ -2,7 +2,7 @@
 
 ## Current release line
 
-**v0.1.0 — Iris / Spooklementary optimization baseline**
+**Minecraft 26.2 — Iris / Spooklementary optimization baseline**
 
 Minecraft target: **26.2**
 
@@ -113,7 +113,7 @@ Use short scoped prefixes: `build:`, `chore:`, `docs:`, `perf:`, `fix:`, `refact
 
 Avoid mixing unrelated work in one commit.
 
-## v0.1.0 phases
+## Current optimization phases
 
 ### Phase 0 — Instrumentation
 

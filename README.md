@@ -4,7 +4,7 @@ Argon is a modular performance optimization mod for **Minecraft Java Edition 26.
 
 ## Current development line
 
-**v0.1.0 — Iris / Spooklementary**
+**Minecraft 26.2 — Iris / Spooklementary development line**
 
 Current development branch:
 
@@ -16,7 +16,7 @@ The first measured target is the **Iris custom-uniform pipeline**, using **Spook
 
 ### Validation status
 
-The project currently has **CI compile validation only**. No in-game test has been performed yet, and no performance improvement is claimed yet.
+The project currently has **compile, package, and structure validation** through CI. No in-game, visual-regression, or performance-benchmark validation has been performed yet, and no performance improvement is claimed yet.
 
 See [docs/VALIDATION_STATUS.md](docs/VALIDATION_STATUS.md).
 
